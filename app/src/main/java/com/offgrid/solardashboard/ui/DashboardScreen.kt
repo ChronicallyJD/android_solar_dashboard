@@ -69,8 +69,7 @@ fun DashboardScreen(vm: DashboardViewModel) {
         if (readings.isNotEmpty()) {
             val totalPv = mppt.mapNotNull { it.pvPowerW }.sum()
             val totalAc = inverters.mapNotNull { it.acOutPowerVa }.sum()
-            val harvestedTodayWh = mppt.mapNotNull { it.yieldTodayWh }.sum()
-            item { EnergyBar(harnessedW = totalPv, expendedW = totalAc, harvestedTodayWh = harvestedTodayWh) }
+            item { EnergyBar(harnessedW = totalPv, expendedW = totalAc, loadEnergyTodayWh = snap.loadEnergyTodayWh) }
             item { OverviewRow(mppt, inverters, bms) }
         }
 
@@ -152,21 +151,24 @@ private fun nextUpdateClock(lastIso: String, intervalSec: Int): String? = try {
 }
 
 // National average residential electricity rate, expressed in cents per
-// watt-hour ($0.188/kWh). Used to estimate the value of harvested solar.
+// watt-hour ($0.188/kWh). Used to price the energy delivered to loads.
 private const val CENTS_PER_WH = 0.0188
 
 /**
  * Energy overview: how much power is currently being Harnessed (solar) versus
- * Expended (AC load), plus the estimated dollar value of the solar energy
- * harvested so far today ([harvestedTodayWh], the sum of MPPT yield-today).
- * The Harnessing and Expending bars share one watt scale; the $ Saved bar
- * mirrors the Harnessing length as a visual cue while its value is the day total.
+ * Expended (AC load), plus the estimated dollar value of the energy delivered to
+ * loads so far today ([loadEnergyTodayWh]). Basing $ Saved on load energy (not
+ * solar harvested) credits the grid power you avoided buying: it accrues day and
+ * night (battery discharge still serves loads) without double-counting the
+ * solar that flowed through the battery. The Harnessing and Expending bars share
+ * one watt scale; the $ Saved bar mirrors the Expending length since savings
+ * track the load being served, while its value is the running day total.
  */
 @Composable
-private fun EnergyBar(harnessedW: Double, expendedW: Double, harvestedTodayWh: Double) {
+private fun EnergyBar(harnessedW: Double, expendedW: Double, loadEnergyTodayWh: Double) {
     val maxW = maxOf(harnessedW, expendedW, 1.0)
-    val harnessedFrac = (harnessedW / maxW).toFloat()
-    val savedDollars = harvestedTodayWh * CENTS_PER_WH / 100.0
+    val expendedFrac = (expendedW / maxW).toFloat()
+    val savedDollars = loadEnergyTodayWh * CENTS_PER_WH / 100.0
     Card(
         Modifier.fillMaxWidth().padding(top = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -174,10 +176,9 @@ private fun EnergyBar(harnessedW: Double, expendedW: Double, harvestedTodayWh: D
         Column(Modifier.padding(12.dp)) {
             Text("ENERGY", fontSize = 10.sp, fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-            EnergyRow("Harnessing", "%.0f W".format(harnessedW), harnessedFrac, SolarColors.Green)
-            EnergyRow("Expending", "%.0f W".format(expendedW), (expendedW / maxW).toFloat(), SolarColors.Purple)
-            // Savings track harnessed power, so the bar mirrors the Harnessing length.
-            EnergyRow("$ Saved", "$%.2f".format(savedDollars), harnessedFrac, SolarColors.Amber)
+            EnergyRow("Harnessing", "%.0f W".format(harnessedW), (harnessedW / maxW).toFloat(), SolarColors.Green)
+            EnergyRow("Expending", "%.0f W".format(expendedW), expendedFrac, SolarColors.Purple)
+            EnergyRow("$ Saved", "$%.2f".format(savedDollars), expendedFrac, SolarColors.Amber)
         }
     }
 }
