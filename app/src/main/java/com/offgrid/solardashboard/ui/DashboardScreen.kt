@@ -19,22 +19,30 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.offgrid.solardashboard.data.AppSettings
 import com.offgrid.solardashboard.data.DeviceConfig
 import com.offgrid.solardashboard.data.MonitorState
 import com.offgrid.solardashboard.protocol.DeviceReading
+import com.offgrid.solardashboard.service.PowerOptimization
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -60,10 +68,27 @@ fun DashboardScreen(vm: DashboardViewModel) {
     // Persist which sections the user has collapsed across recompositions.
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
 
+    // Re-check the battery-optimization exemption when the screen resumes (e.g.
+    // after returning from the system exemption dialog).
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var powerExempt by remember { mutableStateOf(PowerOptimization.isExempt(context)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) powerExempt = PowerOptimization.isExempt(context)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     LazyColumn(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
         item {
             if (devices.isEmpty()) EmptyHint()
             else UpdateStatusLine(snap, settings, devices)
+        }
+
+        if (PowerOptimization.shouldWarn(devices.isNotEmpty(), powerExempt)) {
+            item { BatteryOptimizationBanner(onFix = { PowerOptimization.requestExemption(context) }) }
         }
 
         if (readings.isNotEmpty()) {
@@ -257,6 +282,23 @@ private fun HistorySection(vm: DashboardViewModel) {
         LineChart("Battery Current (A)", seriesFor { it.currentA })
         LineChart("PV Power (W)", seriesFor { it.pvPowerW })
         LineChart("State of Charge (%)", seriesFor { it.capacityPct?.toDouble() })
+    }
+}
+
+@Composable
+private fun BatteryOptimizationBanner(onFix: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth().padding(top = 8.dp).clickable(onClick = onFix),
+        colors = CardDefaults.cardColors(containerColor = SolarColors.Amber.copy(alpha = 0.15f)),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text("⚠ Battery optimization is on", fontWeight = FontWeight.Bold,
+                fontSize = 14.sp, color = SolarColors.Amber)
+            Text("Android may pause monitoring and alerts when the screen is off. " +
+                "Tap to allow the app to keep running in the background.",
+                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                modifier = Modifier.padding(top = 4.dp))
+        }
     }
 }
 

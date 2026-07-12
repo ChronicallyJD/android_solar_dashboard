@@ -71,6 +71,15 @@ or an app update, as long as you have at least one device configured, so you do
 not have to reopen the app to keep monitoring. (After a reboot, unlock the phone
 once so Android delivers the startup signal.)
 
+### Keep it running with the screen off
+
+Android can pause background work, including Bluetooth polling and alerts, when
+the phone is idle with the screen off. If the dashboard shows a
+**"Battery optimization is on"** banner, tap it and choose to stop optimizing
+battery usage for Solar Dashboard. This is the single most important setting for
+reliable unattended monitoring and overnight alerts. For a phone dedicated to
+monitoring, keep it plugged in.
+
 ## 4. Adding your devices
 
 Open **Settings** with the gear icon in the top right. Settings is organized into
@@ -264,6 +273,12 @@ midnight.
 **Alerts did not arrive.** Use **Send test alert** and read the per-channel
 result. For email, the most common cause is using a normal Google password
 instead of an App Password, or not having 2-Step Verification enabled.
+
+**Monitoring stops when the screen is off, or the "Updated" time is stale.**
+Grant the battery-optimization exemption (tap the "Battery optimization is on"
+banner on the dashboard). Keep a dedicated monitoring phone plugged in. You can
+confirm polling is alive at a glance: the "Updated HH:MM:SS" line at the top of
+the dashboard should be within one poll interval of the current time.
 
 ## 14. Privacy and data
 
