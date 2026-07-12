@@ -3,7 +3,10 @@
 All notable changes to Solar Dashboard for Android are documented here. Dates are
 in YYYY-MM-DD.
 
-## [Unreleased]
+## [1.0.0] - 2026-07-12
+
+First public release. Signed APK attached to the
+[GitHub release](https://github.com/ChronicallyJD/android_solar_dashboard/releases/tag/v1.0.0).
 
 ### Added
 

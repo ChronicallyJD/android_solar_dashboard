@@ -5,6 +5,10 @@ BLE monitor for **JBD/Vatrer BMS** batteries and **Victron** charging/inverting
 devices. Same protocols, same parsing, same dashboard, as a sideloadable APK
 that talks to your devices directly over the phone's Bluetooth.
 
+**New here? Read the [User Manual](docs/MANUAL.md)** for installation, setup, and
+usage with screenshots. Grab the latest signed APK from
+[Releases](../../releases/latest).
+
 ## What it does
 
 - **JBD / Vatrer / Overkill / Daly BMS**: connects over GATT (service `ff00`
