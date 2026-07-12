@@ -143,10 +143,10 @@ From top to bottom:
   - **Harnessing**: total solar power being produced right now (watts).
   - **Expending**: total power your inverters are delivering to loads right now.
   - **$ Saved**: the value of the energy your loads used so far today, priced at
-    the national average residential electricity rate. It is based on load
-    energy, not solar harvested, so it keeps climbing at night while the battery
-    runs your loads, and it resets at midnight. It is an estimate, not your actual
-    utility rate.
+    the electricity rate you set in Settings (default is the national average).
+    It is based on load energy, not solar harvested, so it keeps climbing at
+    night while the battery runs your loads, and it resets at midnight. It is an
+    estimate.
 - **Summary tiles.** SOLAR (total PV watts), INVERTERS (total AC output), and
   BATTERY (average state of charge), each with an online count.
 - **Device sections.** MPPT Chargers, Inverters, Battery Packs, and Other Devices.
@@ -198,6 +198,8 @@ Open Settings with the gear icon. Tap any section header to expand or collapse i
 - **Chart history points**: how many points each chart keeps in memory.
 - **History retention (days)**: how long readings are kept in the database. Use 0
   to keep them forever.
+- **Electricity rate (cents/kWh)**: your utility rate, used to price the
+  "$ Saved" estimate. Defaults to the national average.
 - **Persist history to database**: turn saving on or off.
 
 Tap **Save settings** to apply.

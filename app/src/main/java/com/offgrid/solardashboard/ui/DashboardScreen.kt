@@ -94,7 +94,11 @@ fun DashboardScreen(vm: DashboardViewModel) {
         if (readings.isNotEmpty()) {
             val totalPv = mppt.mapNotNull { it.pvPowerW }.sum()
             val totalAc = inverters.mapNotNull { it.acOutPowerVa }.sum()
-            item { EnergyBar(harnessedW = totalPv, expendedW = totalAc, loadEnergyTodayWh = snap.loadEnergyTodayWh) }
+            item {
+                EnergyBar(harnessedW = totalPv, expendedW = totalAc,
+                    loadEnergyTodayWh = snap.loadEnergyTodayWh,
+                    rateCentsPerKwh = settings.electricityRateCents)
+            }
             item { OverviewRow(mppt, inverters, bms) }
         }
 
@@ -175,25 +179,22 @@ private fun nextUpdateClock(lastIso: String, intervalSec: Int): String? = try {
     null
 }
 
-// National average residential electricity rate, expressed in cents per
-// watt-hour ($0.188/kWh). Used to price the energy delivered to loads.
-private const val CENTS_PER_WH = 0.0188
-
 /**
  * Energy overview: how much power is currently being Harnessed (solar) versus
  * Expended (AC load), plus the estimated dollar value of the energy delivered to
- * loads so far today ([loadEnergyTodayWh]). Basing $ Saved on load energy (not
- * solar harvested) credits the grid power you avoided buying: it accrues day and
- * night (battery discharge still serves loads) without double-counting the
- * solar that flowed through the battery. The Harnessing and Expending bars share
- * one watt scale; the $ Saved bar mirrors the Expending length since savings
- * track the load being served, while its value is the running day total.
+ * loads so far today ([loadEnergyTodayWh]) at [rateCentsPerKwh]. Basing $ Saved
+ * on load energy (not solar harvested) credits the grid power you avoided buying:
+ * it accrues day and night (battery discharge still serves loads) without
+ * double-counting the solar that flowed through the battery. The Harnessing and
+ * Expending bars share one watt scale; the $ Saved bar mirrors the Expending
+ * length since savings track the load being served, while its value is the
+ * running day total.
  */
 @Composable
-private fun EnergyBar(harnessedW: Double, expendedW: Double, loadEnergyTodayWh: Double) {
+private fun EnergyBar(harnessedW: Double, expendedW: Double, loadEnergyTodayWh: Double, rateCentsPerKwh: Double) {
     val maxW = maxOf(harnessedW, expendedW, 1.0)
     val expendedFrac = (expendedW / maxW).toFloat()
-    val savedDollars = loadEnergyTodayWh * CENTS_PER_WH / 100.0
+    val savedDollars = com.offgrid.solardashboard.data.Tariff.savingsDollars(loadEnergyTodayWh, rateCentsPerKwh)
     Card(
         Modifier.fillMaxWidth().padding(top = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),

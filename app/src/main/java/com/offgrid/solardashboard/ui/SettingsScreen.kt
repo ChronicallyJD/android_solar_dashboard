@@ -109,6 +109,7 @@ fun SettingsScreen(vm: DashboardViewModel) {
             var scan by remember(settings) { mutableStateOf(settings.scanTimeoutSec.toString()) }
             var maxHist by remember(settings) { mutableStateOf(settings.maxHistory.toString()) }
             var retention by remember(settings) { mutableStateOf(settings.retentionDays.toString()) }
+            var rate by remember(settings) { mutableStateOf(settings.electricityRateCents.toString()) }
             var histEnabled by remember(settings) { mutableStateOf(settings.historyEnabled) }
 
             NumField("BMS interval (s, min 30)", bmsInt) { bmsInt = it }
@@ -116,6 +117,7 @@ fun SettingsScreen(vm: DashboardViewModel) {
             NumField("Scan window (s)", scan) { scan = it }
             NumField("Chart history points", maxHist) { maxHist = it }
             NumField("History retention (days, 0=forever)", retention) { retention = it }
+            NumField("Electricity rate (cents/kWh, for \$ Saved)", rate) { rate = it }
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text("Persist history to database", Modifier.weight(1f))
@@ -129,6 +131,8 @@ fun SettingsScreen(vm: DashboardViewModel) {
                     scanTimeoutSec = scan.toIntOrNull()?.coerceAtLeast(3) ?: 10,
                     maxHistory = maxHist.toIntOrNull()?.coerceAtLeast(10) ?: 600,
                     retentionDays = retention.toIntOrNull()?.coerceAtLeast(0) ?: 1095,
+                    electricityRateCents = rate.toDoubleOrNull()?.coerceIn(0.0, 200.0)
+                        ?: com.offgrid.solardashboard.data.Tariff.DEFAULT_CENTS_PER_KWH,
                     historyEnabled = histEnabled,
                 ))
             }, modifier = Modifier.padding(top = 8.dp)) { Text("Save settings") }

@@ -87,4 +87,5 @@ data class AppSettings(
     val historyEnabled: Boolean = true,
     val retentionDays: Int = 1095,
     val welcomeSeen: Boolean = false, // first-run welcome dismissed
+    val electricityRateCents: Double = Tariff.DEFAULT_CENTS_PER_KWH, // cents per kWh for $ Saved
 )

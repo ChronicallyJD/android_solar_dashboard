@@ -24,6 +24,7 @@ class SettingsRepository(context: Context) {
         historyEnabled = prefs.getBoolean(KEY_HIST_EN, true),
         retentionDays = prefs.getInt(KEY_RETENTION, 1095),
         welcomeSeen = prefs.getBoolean(KEY_WELCOME, false),
+        electricityRateCents = prefs.getFloat(KEY_RATE, Tariff.DEFAULT_CENTS_PER_KWH.toFloat()).toDouble(),
     )
 
     fun saveSettings(s: AppSettings) {
@@ -36,6 +37,7 @@ class SettingsRepository(context: Context) {
             putBoolean(KEY_HIST_EN, s.historyEnabled)
             putInt(KEY_RETENTION, s.retentionDays)
             putBoolean(KEY_WELCOME, s.welcomeSeen)
+            putFloat(KEY_RATE, s.electricityRateCents.toFloat())
         }
     }
 
@@ -49,5 +51,6 @@ class SettingsRepository(context: Context) {
         private const val KEY_HIST_EN = "history_enabled"
         private const val KEY_RETENTION = "retention_days"
         private const val KEY_WELCOME = "welcome_seen"
+        private const val KEY_RATE = "electricity_rate_cents"
     }
 }
