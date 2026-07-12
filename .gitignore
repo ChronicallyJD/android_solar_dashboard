@@ -13,3 +13,8 @@ dist/
 
 # Local Claude Code overrides
 .claude/settings.local.json
+
+# Signing secrets (never commit; back these up separately)
+keystore.properties
+*.jks
+*.keystore
