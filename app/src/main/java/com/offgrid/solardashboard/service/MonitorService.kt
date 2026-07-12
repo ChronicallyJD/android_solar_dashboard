@@ -16,6 +16,7 @@ import com.offgrid.solardashboard.ble.nowIso
 import com.offgrid.solardashboard.alert.AlertDispatcher
 import com.offgrid.solardashboard.data.AlertEvaluator
 import com.offgrid.solardashboard.data.AlertStore
+import com.offgrid.solardashboard.data.EnergyAccumulator
 import com.offgrid.solardashboard.data.EnergyStore
 import com.offgrid.solardashboard.data.HistoryStore
 import com.offgrid.solardashboard.data.MonitorState
@@ -50,9 +51,7 @@ class MonitorService : Service() {
     private lateinit var alertStore: AlertStore
 
     // Daily load-energy accumulator (Wh delivered to loads) for "$ Saved".
-    private var loadWhToday = 0.0
-    private var loadDate = ""
-    private var lastAccumMillis = 0L
+    private var energyState = EnergyAccumulator.State("", 0.0, 0L)
 
     override fun onCreate() {
         super.onCreate()
@@ -103,17 +102,12 @@ class MonitorService : Service() {
      * restart, or start fresh if the stored total is from a previous day.
      */
     private fun seedLoadEnergy() {
-        val today = LocalDate.now().toString()
         val (storedDate, storedWh) = energyStore.load()
-        if (storedDate == today) {
-            loadWhToday = storedWh
-        } else {
-            loadWhToday = 0.0
-            energyStore.save(today, 0.0)
-        }
-        loadDate = today
-        lastAccumMillis = System.currentTimeMillis()
-        MonitorState.setLoadEnergy(loadWhToday)
+        energyState = EnergyAccumulator.seed(
+            storedDate, storedWh, LocalDate.now().toString(), System.currentTimeMillis(),
+        )
+        energyStore.save(energyState.date, energyState.wh)
+        MonitorState.setLoadEnergy(energyState.wh)
     }
 
     /**
@@ -123,21 +117,12 @@ class MonitorService : Service() {
      * resumes the same running total.
      */
     private fun accumulateLoadEnergy(fresh: List<DeviceReading>) {
-        val now = System.currentTimeMillis()
-        val today = LocalDate.now().toString()
-        if (loadDate != today) {
-            // Midnight rollover: start the new day's total without crediting the
-            // slice that straddled midnight.
-            loadWhToday = 0.0
-            loadDate = today
-        } else if (lastAccumMillis > 0L) {
-            val elapsedH = (now - lastAccumMillis) / 3_600_000.0
-            val loadW = fresh.filter { it.deviceType == "inverter" }.mapNotNull { it.acOutPowerVa }.sum()
-            loadWhToday += loadW * elapsedH
-        }
-        lastAccumMillis = now
-        energyStore.save(loadDate, loadWhToday)
-        MonitorState.setLoadEnergy(loadWhToday)
+        val loadW = fresh.filter { it.deviceType == "inverter" }.mapNotNull { it.acOutPowerVa }.sum()
+        energyState = EnergyAccumulator.accumulate(
+            energyState, System.currentTimeMillis(), LocalDate.now().toString(), loadW,
+        )
+        energyStore.save(energyState.date, energyState.wh)
+        MonitorState.setLoadEnergy(energyState.wh)
     }
 
     /**
