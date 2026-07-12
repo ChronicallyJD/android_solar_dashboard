@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,65 +71,76 @@ fun SettingsScreen(vm: DashboardViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Pair<Int?, DeviceConfig>?>(null) }
 
+    // Per-section expand state; Devices starts open, the rest collapsed so the
+    // screen is short on arrival and the user opens what they need.
+    val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    fun isOpen(title: String) = expanded[title] ?: (title == "Devices")
+    fun toggle(title: String) { expanded[title] = !isOpen(title) }
+
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Text("Devices", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        devices.forEachIndexed { i, dev ->
-            Card(Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Row(Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(dev.name, fontWeight = FontWeight.Bold)
-                        Text("${dev.kind.uppercase()}${dev.deviceType?.let { " · $it" } ?: ""} · ${dev.mac}",
-                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                    }
-                    TextButton(onClick = { editing = i to dev }) { Text("Edit") }
-                    IconButton(onClick = { vm.removeDevice(i) }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete")
+        CollapsibleSection("Devices", isOpen("Devices"), { toggle("Devices") },
+            subtitle = "${devices.size} configured", first = true) {
+            devices.forEachIndexed { i, dev ->
+                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(dev.name, fontWeight = FontWeight.Bold)
+                            Text("${dev.kind.uppercase()}${dev.deviceType?.let { " · $it" } ?: ""} · ${dev.mac}",
+                                fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                        }
+                        TextButton(onClick = { editing = i to dev }) { Text("Edit") }
+                        IconButton(onClick = { vm.removeDevice(i) }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Delete")
+                        }
                     }
                 }
             }
-        }
-        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { editing = null to DeviceConfig("bms", "", "") }) { Text("Add BMS") }
-            Button(onClick = { editing = null to DeviceConfig("victron", "", "", deviceType = "mppt") }) { Text("Add Victron") }
-        }
-
-        Divider(Modifier.padding(vertical = 16.dp))
-
-        Text("Polling & History", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        var bmsInt by remember(settings) { mutableStateOf(settings.bmsIntervalSec.toString()) }
-        var vicInt by remember(settings) { mutableStateOf(settings.victronIntervalSec.toString()) }
-        var scan by remember(settings) { mutableStateOf(settings.scanTimeoutSec.toString()) }
-        var maxHist by remember(settings) { mutableStateOf(settings.maxHistory.toString()) }
-        var retention by remember(settings) { mutableStateOf(settings.retentionDays.toString()) }
-        var histEnabled by remember(settings) { mutableStateOf(settings.historyEnabled) }
-
-        NumField("BMS interval (s, min 30)", bmsInt) { bmsInt = it }
-        NumField("Victron interval (s, min 10)", vicInt) { vicInt = it }
-        NumField("Scan window (s)", scan) { scan = it }
-        NumField("Chart history points", maxHist) { maxHist = it }
-        NumField("History retention (days, 0=forever)", retention) { retention = it }
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("Persist history to database", Modifier.weight(1f))
-            Switch(checked = histEnabled, onCheckedChange = { histEnabled = it })
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { editing = null to DeviceConfig("bms", "", "") }) { Text("Add BMS") }
+                Button(onClick = { editing = null to DeviceConfig("victron", "", "", deviceType = "mppt") }) { Text("Add Victron") }
+            }
         }
 
-        Button(onClick = {
-            vm.saveSettings(settings.copy(
-                bmsIntervalSec = bmsInt.toIntOrNull()?.coerceAtLeast(30) ?: 120,
-                victronIntervalSec = vicInt.toIntOrNull()?.coerceAtLeast(10) ?: 30,
-                scanTimeoutSec = scan.toIntOrNull()?.coerceAtLeast(3) ?: 10,
-                maxHistory = maxHist.toIntOrNull()?.coerceAtLeast(10) ?: 600,
-                retentionDays = retention.toIntOrNull()?.coerceAtLeast(0) ?: 1095,
-                historyEnabled = histEnabled,
-            ))
-        }, modifier = Modifier.padding(top = 8.dp)) { Text("Save settings") }
+        CollapsibleSection("Polling & History", isOpen("Polling & History"), { toggle("Polling & History") }) {
+            var bmsInt by remember(settings) { mutableStateOf(settings.bmsIntervalSec.toString()) }
+            var vicInt by remember(settings) { mutableStateOf(settings.victronIntervalSec.toString()) }
+            var scan by remember(settings) { mutableStateOf(settings.scanTimeoutSec.toString()) }
+            var maxHist by remember(settings) { mutableStateOf(settings.maxHistory.toString()) }
+            var retention by remember(settings) { mutableStateOf(settings.retentionDays.toString()) }
+            var histEnabled by remember(settings) { mutableStateOf(settings.historyEnabled) }
 
-        AlertsSection(vm)
+            NumField("BMS interval (s, min 30)", bmsInt) { bmsInt = it }
+            NumField("Victron interval (s, min 10)", vicInt) { vicInt = it }
+            NumField("Scan window (s)", scan) { scan = it }
+            NumField("Chart history points", maxHist) { maxHist = it }
+            NumField("History retention (days, 0=forever)", retention) { retention = it }
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("Persist history to database", Modifier.weight(1f))
+                Switch(checked = histEnabled, onCheckedChange = { histEnabled = it })
+            }
 
-        DatabaseMaintenanceSection(vm)
+            Button(onClick = {
+                vm.saveSettings(settings.copy(
+                    bmsIntervalSec = bmsInt.toIntOrNull()?.coerceAtLeast(30) ?: 120,
+                    victronIntervalSec = vicInt.toIntOrNull()?.coerceAtLeast(10) ?: 30,
+                    scanTimeoutSec = scan.toIntOrNull()?.coerceAtLeast(3) ?: 10,
+                    maxHistory = maxHist.toIntOrNull()?.coerceAtLeast(10) ?: 600,
+                    retentionDays = retention.toIntOrNull()?.coerceAtLeast(0) ?: 1095,
+                    historyEnabled = histEnabled,
+                ))
+            }, modifier = Modifier.padding(top = 8.dp)) { Text("Save settings") }
+        }
+
+        CollapsibleSection("Low-Battery Alerts", isOpen("Low-Battery Alerts"), { toggle("Low-Battery Alerts") }) {
+            AlertsSection(vm)
+        }
+
+        CollapsibleSection("Database Maintenance", isOpen("Database Maintenance"), { toggle("Database Maintenance") }) {
+            DatabaseMaintenanceSection(vm)
+        }
 
         androidx.compose.foundation.layout.Spacer(Modifier.padding(32.dp))
     }
@@ -144,6 +156,36 @@ fun SettingsScreen(vm: DashboardViewModel) {
             },
         )
     }
+}
+
+/**
+ * A settings section with a tappable header (chevron + title, optional subtitle)
+ * that collapses or expands its [content]. Draws a divider above, skipped for
+ * the [first] section so there is no rule under the app bar.
+ */
+@Composable
+private fun CollapsibleSection(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    subtitle: String? = null,
+    first: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    if (!first) Divider(Modifier.padding(vertical = 12.dp))
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(if (expanded) "▾" else "▸", fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(end = 8.dp))
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+        subtitle?.let {
+            Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        }
+    }
+    if (expanded) content()
 }
 
 @Composable
@@ -167,8 +209,6 @@ private fun AlertsSection(vm: DashboardViewModel) {
         else smsPermLauncher.launch(Manifest.permission.SEND_SMS)
     }
 
-    Divider(Modifier.padding(vertical = 16.dp))
-    Text("Low-Battery Alerts", fontWeight = FontWeight.Bold, fontSize = 18.sp)
     Text("Notify you when the average battery state of charge drops below a threshold.",
         fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         modifier = Modifier.padding(vertical = 4.dp))
@@ -280,9 +320,6 @@ private fun DatabaseMaintenanceSection(vm: DashboardViewModel) {
     LaunchedEffect(refresh) {
         stats = withContext(Dispatchers.IO) { vm.dbStats() }
     }
-
-    Divider(Modifier.padding(vertical = 16.dp))
-    Text("Database Maintenance", fontWeight = FontWeight.Bold, fontSize = 18.sp)
 
     val s = stats
     Text(
