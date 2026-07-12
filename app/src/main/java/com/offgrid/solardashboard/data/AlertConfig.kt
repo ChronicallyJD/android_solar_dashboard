@@ -80,10 +80,15 @@ class AlertStore(context: Context) {
         }
     }
 
-    /** True when the alert is armed (ready to fire). Defaults to armed. */
+    /** True when the low-SoC alert is armed (ready to fire). Defaults to armed. */
     fun isArmed(): Boolean = prefs.getBoolean(K_ARMED, true)
 
     fun setArmed(armed: Boolean) = prefs.edit { putBoolean(K_ARMED, armed) }
+
+    /** True when the all-batteries-unreachable alert is armed. Defaults to armed. */
+    fun isUnreachableArmed(): Boolean = prefs.getBoolean(K_UNREACH_ARMED, true)
+
+    fun setUnreachableArmed(armed: Boolean) = prefs.edit { putBoolean(K_UNREACH_ARMED, armed) }
 
     companion object {
         private const val TAG = "AlertStore"
@@ -98,6 +103,7 @@ class AlertStore(context: Context) {
         private const val K_SMS_NUM = "sms_number"
         private const val K_NOTIFY_EN = "notify_enabled"
         private const val K_ARMED = "armed"
+        private const val K_UNREACH_ARMED = "unreachable_armed"
     }
 }
 
@@ -121,6 +127,22 @@ object AlertEvaluator {
         soc == null -> Decision(fire = false, armed = armed)                 // no data, hold state
         armed && soc < threshold -> Decision(fire = true, armed = false)      // cross below: fire once
         !armed && soc >= threshold + rearmMargin -> Decision(fire = false, armed = true) // recovered: re-arm
+        else -> Decision(fire = false, armed = armed)                         // no change
+    }
+
+    /**
+     * Decide whether to fire the "all batteries unreachable" alert. Fires once
+     * when every configured BMS stops responding, and re-arms as soon as at
+     * least one becomes reachable again.
+     *
+     * @param bmsConfigured number of BMS devices in the config.
+     * @param reachableCount how many of them responded this cycle.
+     * @param armed whether this alert is currently ready to fire.
+     */
+    fun evaluateReachability(bmsConfigured: Int, reachableCount: Int, armed: Boolean): Decision = when {
+        bmsConfigured == 0 -> Decision(fire = false, armed = armed)           // nothing to watch
+        armed && reachableCount == 0 -> Decision(fire = true, armed = false)  // all gone: fire once
+        !armed && reachableCount > 0 -> Decision(fire = false, armed = true)  // one back: re-arm
         else -> Decision(fire = false, armed = armed)                         // no change
     }
 }

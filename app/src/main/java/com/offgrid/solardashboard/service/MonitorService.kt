@@ -141,26 +141,44 @@ class MonitorService : Service() {
     }
 
     /**
-     * Evaluate the low-battery alert against the current average battery SoC and
-     * fire the configured channels if it just crossed below the threshold. The
-     * armed state is persisted so a restart does not re-alert while still low.
+     * Evaluate the battery alerts each cycle: low average state of charge, and
+     * all battery packs unreachable. Each fires once on the triggering transition
+     * and re-arms on recovery; both armed flags are persisted so a restart does
+     * not re-alert while the condition still holds.
      */
     private fun evaluateAlerts() {
         val config = alertStore.load()
         if (!config.enabled) return
-        val socs = MonitorState.state.value.readings
-            .filter { it.deviceType == "bms" && it.error == null }
-            .mapNotNull { it.capacityPct }
-        if (socs.isEmpty()) return
-        val avgSoc = socs.average().toInt()
-        val decision = AlertEvaluator.evaluate(
-            avgSoc, config.thresholdPct, config.rearmMarginPct, alertStore.isArmed(),
-        )
-        if (decision.armed != alertStore.isArmed()) alertStore.setArmed(decision.armed)
-        if (decision.fire) {
-            Log.i(TAG, "low-battery alert firing at $avgSoc% (threshold ${config.thresholdPct}%)")
-            val result = AlertDispatcher.sendLowBattery(this, config, avgSoc)
-            if (result.anyFailure) Log.w(TAG, "alert had failures: ${result.summary()}")
+        val bmsReadings = MonitorState.state.value.readings.filter { it.deviceType == "bms" }
+        val reachable = bmsReadings.filter { it.error == null }
+        val socs = reachable.mapNotNull { it.capacityPct }
+        val bmsConfigured = settingsRepo.loadDevices().count { it.kind == "bms" }
+
+        // Low state of charge (only when we can read at least one pack).
+        if (socs.isNotEmpty()) {
+            val avgSoc = socs.average().toInt()
+            val d = AlertEvaluator.evaluate(
+                avgSoc, config.thresholdPct, config.rearmMarginPct, alertStore.isArmed(),
+            )
+            if (d.armed != alertStore.isArmed()) alertStore.setArmed(d.armed)
+            if (d.fire) {
+                Log.i(TAG, "low-battery alert firing at $avgSoc% (threshold ${config.thresholdPct}%)")
+                val result = AlertDispatcher.sendLowBattery(this, config, avgSoc)
+                if (result.anyFailure) Log.w(TAG, "low-battery alert had failures: ${result.summary()}")
+            }
+        }
+
+        // All battery packs unreachable.
+        if (bmsConfigured > 0) {
+            val d = AlertEvaluator.evaluateReachability(
+                bmsConfigured, reachable.size, alertStore.isUnreachableArmed(),
+            )
+            if (d.armed != alertStore.isUnreachableArmed()) alertStore.setUnreachableArmed(d.armed)
+            if (d.fire) {
+                Log.w(TAG, "all-batteries-unreachable alert firing ($bmsConfigured configured, 0 reachable)")
+                val result = AlertDispatcher.sendUnreachable(this, config)
+                if (result.anyFailure) Log.w(TAG, "unreachable alert had failures: ${result.summary()}")
+            }
         }
     }
 

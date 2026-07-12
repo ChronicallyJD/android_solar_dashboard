@@ -80,4 +80,46 @@ class AlertEvaluatorTest {
         assertFalse(AlertEvaluator.evaluate(59, 50, 10, false).armed) // needs >= 60 to re-arm
         assertTrue(AlertEvaluator.evaluate(60, 50, 10, false).armed)
     }
+
+    // ── Reachability (all batteries unreachable) ────────────────────────────
+
+    @Test fun reachabilityFiresWhenAllUnreachable() {
+        val d = AlertEvaluator.evaluateReachability(bmsConfigured = 3, reachableCount = 0, armed = true)
+        assertTrue(d.fire)
+        assertFalse(d.armed)
+    }
+
+    @Test fun reachabilityDoesNotRefireWhileAllDown() {
+        assertFalse(AlertEvaluator.evaluateReachability(3, 0, armed = false).fire)
+    }
+
+    @Test fun reachabilityNoFireWhenSomeReachable() {
+        val d = AlertEvaluator.evaluateReachability(3, 1, armed = true)
+        assertFalse(d.fire)
+        assertTrue(d.armed)
+    }
+
+    @Test fun reachabilityRearmsWhenOneReturns() {
+        val d = AlertEvaluator.evaluateReachability(3, 2, armed = false)
+        assertTrue(d.armed)
+        assertFalse(d.fire)
+    }
+
+    @Test fun reachabilityIgnoredWithNoBmsConfigured() {
+        val d = AlertEvaluator.evaluateReachability(bmsConfigured = 0, reachableCount = 0, armed = true)
+        assertFalse(d.fire)
+        assertTrue(d.armed)
+    }
+
+    @Test fun reachabilityFiresOncePerOutage() {
+        var armed = true
+        var fires = 0
+        // 3 reachable, drop to 0, recover to 2, drop to 0 again.
+        for (reachable in listOf(3, 2, 0, 0, 0, 1, 2, 0, 0)) {
+            val d = AlertEvaluator.evaluateReachability(3, reachable, armed)
+            if (d.fire) fires++
+            armed = d.armed
+        }
+        assertEquals(2, fires)
+    }
 }

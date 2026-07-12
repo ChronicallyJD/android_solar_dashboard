@@ -50,6 +50,14 @@ object AlertDispatcher {
         return dispatch(context, config, subject, body)
     }
 
+    /** Fire an alert when every configured battery pack has stopped responding. */
+    fun sendUnreachable(context: Context, config: AlertConfig): Result {
+        val subject = "Solar Dashboard: batteries unreachable"
+        val body = "No battery pack is responding over Bluetooth. The monitor cannot " +
+            "read your battery state of charge. Check the packs and the monitoring phone."
+        return dispatch(context, config, subject, body)
+    }
+
     /** Send a test message over the enabled channels to verify configuration. */
     fun sendTest(context: Context, config: AlertConfig): Result {
         val subject = "Solar Dashboard test alert"

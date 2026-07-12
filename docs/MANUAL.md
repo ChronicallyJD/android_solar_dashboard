@@ -224,6 +224,11 @@ three channels:
   cell service. Standard message rates apply.
 - **Phone notification.** Shows a notification on this phone. No setup needed.
 
+While alerts are on you are also notified if **every battery pack stops
+responding at once**, so you know when the monitor has lost sight of your
+batteries entirely, not only when they read low. Like the low-battery alert it
+sends once and clears when a pack is reachable again.
+
 Use **Send test alert** to send a test over every enabled channel and confirm your
 setup before you rely on it. The on-screen result reports each channel as `sent`
 or shows the exact error.
