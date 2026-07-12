@@ -32,6 +32,12 @@ that talks to your devices directly over the phone's Bluetooth.
 - **Help and maintenance**: an in-app help screen documents setup; history can
   be pruned by date range or in full, gated behind biometric or PIN unlock.
 
+## Documentation
+
+- [User manual](docs/MANUAL.md) with screenshots: installation, setup, reading
+  the dashboard, every setting, alerts, and troubleshooting.
+- [Changelog](CHANGELOG.md).
+
 ## Protocol parity
 
 The protocol logic is a direct port of the Python modules, kept in pure,
