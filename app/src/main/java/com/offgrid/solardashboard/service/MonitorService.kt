@@ -176,6 +176,34 @@ class MonitorService : Service() {
                 if (result.anyFailure) Log.w(TAG, "unreachable alert had failures: ${result.summary()}")
             }
         }
+
+        // High temperature: hottest sensor across all reachable devices.
+        val hottest = reachable
+            .flatMap { r -> (r.tempC + listOfNotNull(r.temperatureC)).map { r.name to it } }
+            .maxByOrNull { it.second }
+        run {
+            val d = AlertEvaluator.evaluateHighTemp(
+                hottest?.second, config.highTempC, TEMP_REARM_MARGIN_C, alertStore.isTempArmed(),
+            )
+            if (d.armed != alertStore.isTempArmed()) alertStore.setTempArmed(d.armed)
+            if (d.fire && hottest != null) {
+                Log.w(TAG, "high-temp alert firing: ${hottest.first} at ${hottest.second}C")
+                val result = AlertDispatcher.sendHighTemp(this, config, hottest.first, hottest.second)
+                if (result.anyFailure) Log.w(TAG, "high-temp alert had failures: ${result.summary()}")
+            }
+        }
+
+        // Protection faults on any reachable device.
+        val faulted = reachable.firstOrNull { !it.faults.isNullOrEmpty() }
+        run {
+            val d = AlertEvaluator.evaluateFault(faulted != null, alertStore.isFaultArmed())
+            if (d.armed != alertStore.isFaultArmed()) alertStore.setFaultArmed(d.armed)
+            if (d.fire && faulted != null) {
+                Log.w(TAG, "fault alert firing: ${faulted.name} ${faulted.faults}")
+                val result = AlertDispatcher.sendFault(this, config, faulted.name, faulted.faults!!)
+                if (result.anyFailure) Log.w(TAG, "fault alert had failures: ${result.summary()}")
+            }
+        }
     }
 
     private suspend fun pollLoop() {
@@ -299,6 +327,7 @@ class MonitorService : Service() {
         private const val CHANNEL_ID = "solar_monitor"
         private const val NOTIF_ID = 1
         private const val INTER_DEVICE_GAP_MS = 1500L
+        private const val TEMP_REARM_MARGIN_C = 3   // cool this far below threshold to re-arm
 
         fun start(context: Context) {
             val intent = Intent(context, MonitorService::class.java)

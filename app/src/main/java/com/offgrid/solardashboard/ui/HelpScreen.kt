@@ -93,9 +93,10 @@ fun HelpScreen() {
         Body("Use \"Send test alert\" to confirm your setup over every enabled channel before you rely on it. " +
             "Alert settings, including the Gmail App Password, are stored encrypted on this phone and are " +
             "only ever sent to Gmail's mail server.")
-        Body("While alerts are on, you are also notified if every battery pack stops responding at once, " +
-            "so you know when the monitor has lost sight of your batteries, not just when they are low. " +
-            "This too sends once and clears when a pack is reachable again.")
+        Body("While alerts are on you also get notified for other conditions, each sending once and " +
+            "clearing on recovery: every battery pack unreachable at once (the monitor has lost sight " +
+            "of your batteries), a sensor at or above the high-temperature threshold you set, and any " +
+            "device reporting a protection fault.")
 
         Section("Database maintenance")
         Body("Under Settings you can delete stored history by date range, or all of it. Deletion is " +

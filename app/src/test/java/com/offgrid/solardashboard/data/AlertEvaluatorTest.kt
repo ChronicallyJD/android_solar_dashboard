@@ -122,4 +122,49 @@ class AlertEvaluatorTest {
         }
         assertEquals(2, fires)
     }
+
+    // ── High temperature ────────────────────────────────────────────────────
+
+    @Test fun highTempFiresAtOrAboveThreshold() {
+        val d = AlertEvaluator.evaluateHighTemp(50.0, thresholdC = 50, rearmMargin = 3, armed = true)
+        assertTrue(d.fire)
+        assertFalse(d.armed)
+    }
+
+    @Test fun highTempNoFireBelowThreshold() {
+        assertFalse(AlertEvaluator.evaluateHighTemp(49.9, 50, 3, armed = true).fire)
+    }
+
+    @Test fun highTempRearmsAfterCooling() {
+        // Needs to drop to threshold - margin (47) to re-arm.
+        assertFalse(AlertEvaluator.evaluateHighTemp(48.0, 50, 3, armed = false).armed)
+        assertTrue(AlertEvaluator.evaluateHighTemp(47.0, 50, 3, armed = false).armed)
+    }
+
+    @Test fun highTempDisabledWhenThresholdZero() {
+        assertFalse(AlertEvaluator.evaluateHighTemp(80.0, 0, 3, armed = true).fire)
+    }
+
+    @Test fun highTempNullHoldsState() {
+        assertFalse(AlertEvaluator.evaluateHighTemp(null, 50, 3, armed = true).fire)
+        assertTrue(AlertEvaluator.evaluateHighTemp(null, 50, 3, armed = true).armed)
+    }
+
+    // ── Faults ──────────────────────────────────────────────────────────────
+
+    @Test fun faultFiresWhenPresent() {
+        val d = AlertEvaluator.evaluateFault(hasFault = true, armed = true)
+        assertTrue(d.fire)
+        assertFalse(d.armed)
+    }
+
+    @Test fun faultNoRefireWhilePresent() {
+        assertFalse(AlertEvaluator.evaluateFault(hasFault = true, armed = false).fire)
+    }
+
+    @Test fun faultRearmsWhenCleared() {
+        val d = AlertEvaluator.evaluateFault(hasFault = false, armed = false)
+        assertTrue(d.armed)
+        assertFalse(d.fire)
+    }
 }

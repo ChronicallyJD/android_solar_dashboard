@@ -226,10 +226,15 @@ three channels:
   cell service. Standard message rates apply.
 - **Phone notification.** Shows a notification on this phone. No setup needed.
 
-While alerts are on you are also notified if **every battery pack stops
-responding at once**, so you know when the monitor has lost sight of your
-batteries entirely, not only when they read low. Like the low-battery alert it
-sends once and clears when a pack is reachable again.
+While alerts are on you are also notified for other conditions, each sending once
+and clearing on recovery:
+
+- **All battery packs unreachable at once**, so you know when the monitor has
+  lost sight of your batteries entirely, not only when they read low.
+- **High temperature**: any sensor at or above the threshold you set (set the
+  threshold to 0 to turn this off).
+- **Device fault**: any device reporting a protection fault (over-voltage,
+  over-current, short circuit, over-temperature, and similar).
 
 Use **Send test alert** to send a test over every enabled channel and confirm your
 setup before you rely on it. The on-screen result reports each channel as `sent`

@@ -50,6 +50,21 @@ object AlertDispatcher {
         return dispatch(context, config, subject, body)
     }
 
+    /** Fire an alert when a sensor reads at or above the high-temperature threshold. */
+    fun sendHighTemp(context: Context, config: AlertConfig, name: String, tempC: Double): Result {
+        val subject = "Solar Dashboard: high temperature"
+        val body = "%s reached %.0f°C, at or above your %d°C alert threshold."
+            .format(name, tempC, config.highTempC)
+        return dispatch(context, config, subject, body)
+    }
+
+    /** Fire an alert when a device reports one or more protection faults. */
+    fun sendFault(context: Context, config: AlertConfig, name: String, faults: List<String>): Result {
+        val subject = "Solar Dashboard: device fault"
+        val body = "$name reported a fault: ${faults.joinToString(", ")}."
+        return dispatch(context, config, subject, body)
+    }
+
     /** Fire an alert when every configured battery pack has stopped responding. */
     fun sendUnreachable(context: Context, config: AlertConfig): Result {
         val subject = "Solar Dashboard: batteries unreachable"

@@ -39,7 +39,7 @@ class AlertStoreTest {
             emailEnabled = true, senderGmail = "me@gmail.com", appPassword = "abcd efgh ijkl mnop",
             recipientEmail = "you@example.com",
             smsEnabled = true, smsNumber = "+15551234567",
-            notifyEnabled = false,
+            notifyEnabled = false, highTempC = 45,
         )
         store.save(cfg)
         assertEquals(cfg, store.load())

@@ -28,6 +28,8 @@ data class AlertConfig(
     val smsNumber: String = "",
     // Local notification
     val notifyEnabled: Boolean = true,
+    // High-temperature threshold in Celsius; 0 disables the temperature alert.
+    val highTempC: Int = 50,
 )
 
 /**
@@ -63,6 +65,7 @@ class AlertStore(context: Context) {
         smsEnabled = prefs.getBoolean(K_SMS_EN, false),
         smsNumber = prefs.getString(K_SMS_NUM, "") ?: "",
         notifyEnabled = prefs.getBoolean(K_NOTIFY_EN, true),
+        highTempC = prefs.getInt(K_HIGH_TEMP, 50),
     )
 
     fun save(c: AlertConfig) {
@@ -77,6 +80,7 @@ class AlertStore(context: Context) {
             putBoolean(K_SMS_EN, c.smsEnabled)
             putString(K_SMS_NUM, c.smsNumber)
             putBoolean(K_NOTIFY_EN, c.notifyEnabled)
+            putInt(K_HIGH_TEMP, c.highTempC)
         }
     }
 
@@ -90,6 +94,16 @@ class AlertStore(context: Context) {
 
     fun setUnreachableArmed(armed: Boolean) = prefs.edit { putBoolean(K_UNREACH_ARMED, armed) }
 
+    /** True when the high-temperature alert is armed. Defaults to armed. */
+    fun isTempArmed(): Boolean = prefs.getBoolean(K_TEMP_ARMED, true)
+
+    fun setTempArmed(armed: Boolean) = prefs.edit { putBoolean(K_TEMP_ARMED, armed) }
+
+    /** True when the fault alert is armed. Defaults to armed. */
+    fun isFaultArmed(): Boolean = prefs.getBoolean(K_FAULT_ARMED, true)
+
+    fun setFaultArmed(armed: Boolean) = prefs.edit { putBoolean(K_FAULT_ARMED, armed) }
+
     companion object {
         private const val TAG = "AlertStore"
         private const val K_ENABLED = "enabled"
@@ -102,8 +116,11 @@ class AlertStore(context: Context) {
         private const val K_SMS_EN = "sms_enabled"
         private const val K_SMS_NUM = "sms_number"
         private const val K_NOTIFY_EN = "notify_enabled"
+        private const val K_HIGH_TEMP = "high_temp_c"
         private const val K_ARMED = "armed"
         private const val K_UNREACH_ARMED = "unreachable_armed"
+        private const val K_TEMP_ARMED = "temp_armed"
+        private const val K_FAULT_ARMED = "fault_armed"
     }
 }
 
@@ -144,5 +161,27 @@ object AlertEvaluator {
         armed && reachableCount == 0 -> Decision(fire = true, armed = false)  // all gone: fire once
         !armed && reachableCount > 0 -> Decision(fire = false, armed = true)  // one back: re-arm
         else -> Decision(fire = false, armed = armed)                         // no change
+    }
+
+    /**
+     * Fire once when the hottest sensor crosses at or above [thresholdC], and
+     * re-arm only after it cools to [thresholdC] - [rearmMargin]. A threshold of
+     * 0 (disabled) or a null reading holds state.
+     */
+    fun evaluateHighTemp(maxTempC: Double?, thresholdC: Int, rearmMargin: Int, armed: Boolean): Decision = when {
+        thresholdC <= 0 || maxTempC == null -> Decision(fire = false, armed = armed)
+        armed && maxTempC >= thresholdC -> Decision(fire = true, armed = false)
+        !armed && maxTempC <= thresholdC - rearmMargin -> Decision(fire = false, armed = true)
+        else -> Decision(fire = false, armed = armed)
+    }
+
+    /**
+     * Fire once when any device first reports a protection fault, and re-arm when
+     * all faults have cleared.
+     */
+    fun evaluateFault(hasFault: Boolean, armed: Boolean): Decision = when {
+        armed && hasFault -> Decision(fire = true, armed = false)
+        !armed && !hasFault -> Decision(fire = false, armed = true)
+        else -> Decision(fire = false, armed = armed)
     }
 }

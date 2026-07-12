@@ -225,6 +225,14 @@ private fun AlertsSection(vm: DashboardViewModel) {
             threshold = it
             cfg = cfg.copy(thresholdPct = it.toIntOrNull()?.coerceIn(1, 100) ?: 20)
         }
+        var hitemp by remember(cfg.enabled) { mutableStateOf(cfg.highTempC.toString()) }
+        NumField("High temperature alert (°C, 0=off)", hitemp) {
+            hitemp = it
+            cfg = cfg.copy(highTempC = it.toIntOrNull()?.coerceIn(0, 120) ?: 50)
+        }
+        Text("Also alerts on device faults and when all packs stop responding.",
+            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(bottom = 4.dp))
 
         // Email
         SwitchRow("Email (Gmail)", cfg.emailEnabled) { cfg = cfg.copy(emailEnabled = it) }
