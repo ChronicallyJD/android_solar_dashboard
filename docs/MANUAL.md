@@ -66,6 +66,11 @@ When prompted, grant the requested permissions:
 If you skip a permission the app still runs, but devices that need it will report
 errors until it is granted.
 
+The monitor runs as a background service and restarts itself after a phone reboot
+or an app update, as long as you have at least one device configured, so you do
+not have to reopen the app to keep monitoring. (After a reboot, unlock the phone
+once so Android delivers the startup signal.)
+
 ## 4. Adding your devices
 
 Open **Settings** with the gear icon in the top right. Settings is organized into

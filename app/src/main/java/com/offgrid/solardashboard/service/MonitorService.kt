@@ -287,10 +287,17 @@ class MonitorService : Service() {
 
         fun start(context: Context) {
             val intent = Intent(context, MonitorService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                // Starting a foreground service from the background is restricted
+                // on Android 12+. Boot is exempt; other callers may not be. Log
+                // rather than crash so a blocked start never takes down the caller.
+                Log.w(TAG, "could not start service: ${e.message}")
             }
         }
 
