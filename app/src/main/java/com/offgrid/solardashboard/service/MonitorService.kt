@@ -13,9 +13,14 @@ import com.offgrid.solardashboard.MainActivity
 import com.offgrid.solardashboard.ble.JbdGattClient
 import com.offgrid.solardashboard.ble.VictronScanner
 import com.offgrid.solardashboard.ble.nowIso
+import com.offgrid.solardashboard.alert.AlertDispatcher
+import com.offgrid.solardashboard.data.AlertEvaluator
+import com.offgrid.solardashboard.data.AlertStore
+import com.offgrid.solardashboard.data.EnergyStore
 import com.offgrid.solardashboard.data.HistoryStore
 import com.offgrid.solardashboard.data.MonitorState
 import com.offgrid.solardashboard.data.SettingsRepository
+import java.time.LocalDate
 import com.offgrid.solardashboard.protocol.DeviceReading
 import com.offgrid.solardashboard.protocol.VictronParser
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +46,13 @@ class MonitorService : Service() {
     private lateinit var history: HistoryStore
     private lateinit var scanner: VictronScanner
     private lateinit var jbd: JbdGattClient
+    private lateinit var energyStore: EnergyStore
+    private lateinit var alertStore: AlertStore
+
+    // Daily load-energy accumulator (Wh delivered to loads) for "$ Saved".
+    private var loadWhToday = 0.0
+    private var loadDate = ""
+    private var lastAccumMillis = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -48,6 +60,8 @@ class MonitorService : Service() {
         history = HistoryStore(this)
         scanner = VictronScanner(this)
         jbd = JbdGattClient(this)
+        energyStore = EnergyStore(this)
+        alertStore = AlertStore(this)
         startForeground(NOTIF_ID, buildNotification("Starting…"))
     }
 
@@ -84,8 +98,75 @@ class MonitorService : Service() {
         }
     }
 
+    /**
+     * Restore today's load-energy total from storage so "$ Saved" survives a
+     * restart, or start fresh if the stored total is from a previous day.
+     */
+    private fun seedLoadEnergy() {
+        val today = LocalDate.now().toString()
+        val (storedDate, storedWh) = energyStore.load()
+        if (storedDate == today) {
+            loadWhToday = storedWh
+        } else {
+            loadWhToday = 0.0
+            energyStore.save(today, 0.0)
+        }
+        loadDate = today
+        lastAccumMillis = System.currentTimeMillis()
+        MonitorState.setLoadEnergy(loadWhToday)
+    }
+
+    /**
+     * Add the energy delivered to loads over the interval just elapsed: current
+     * total inverter AC output times the time since the last accumulation. Resets
+     * to zero when the local date rolls over. Persisted every cycle so a restart
+     * resumes the same running total.
+     */
+    private fun accumulateLoadEnergy(fresh: List<DeviceReading>) {
+        val now = System.currentTimeMillis()
+        val today = LocalDate.now().toString()
+        if (loadDate != today) {
+            // Midnight rollover: start the new day's total without crediting the
+            // slice that straddled midnight.
+            loadWhToday = 0.0
+            loadDate = today
+        } else if (lastAccumMillis > 0L) {
+            val elapsedH = (now - lastAccumMillis) / 3_600_000.0
+            val loadW = fresh.filter { it.deviceType == "inverter" }.mapNotNull { it.acOutPowerVa }.sum()
+            loadWhToday += loadW * elapsedH
+        }
+        lastAccumMillis = now
+        energyStore.save(loadDate, loadWhToday)
+        MonitorState.setLoadEnergy(loadWhToday)
+    }
+
+    /**
+     * Evaluate the low-battery alert against the current average battery SoC and
+     * fire the configured channels if it just crossed below the threshold. The
+     * armed state is persisted so a restart does not re-alert while still low.
+     */
+    private fun evaluateAlerts() {
+        val config = alertStore.load()
+        if (!config.enabled) return
+        val socs = MonitorState.state.value.readings
+            .filter { it.deviceType == "bms" && it.error == null }
+            .mapNotNull { it.capacityPct }
+        if (socs.isEmpty()) return
+        val avgSoc = socs.average().toInt()
+        val decision = AlertEvaluator.evaluate(
+            avgSoc, config.thresholdPct, config.rearmMarginPct, alertStore.isArmed(),
+        )
+        if (decision.armed != alertStore.isArmed()) alertStore.setArmed(decision.armed)
+        if (decision.fire) {
+            Log.i(TAG, "low-battery alert firing at $avgSoc% (threshold ${config.thresholdPct}%)")
+            val result = AlertDispatcher.sendLowBattery(this, config, avgSoc)
+            if (result.anyFailure) Log.w(TAG, "alert had failures: ${result.summary()}")
+        }
+    }
+
     private suspend fun pollLoop() {
         seedFromDb(settingsRepo.loadSettings())
+        seedLoadEnergy()
         while (scope.isActive) {
             val settings = settingsRepo.loadSettings()
             val devices = settingsRepo.loadDevices()
@@ -149,6 +230,9 @@ class MonitorService : Service() {
                 }
                 updateNotification(fresh)
             }
+
+            accumulateLoadEnergy(fresh)
+            evaluateAlerts()
 
             val interval = minOf(
                 if (victronDevices.isNotEmpty()) settings.victronIntervalSec else Int.MAX_VALUE,

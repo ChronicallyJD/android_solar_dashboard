@@ -2,16 +2,21 @@ package com.offgrid.solardashboard.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import com.offgrid.solardashboard.data.AppSettings
-import com.offgrid.solardashboard.data.DeviceConfig
+import com.offgrid.solardashboard.alert.AlertDispatcher
 import com.offgrid.solardashboard.ble.BmsScanner
 import com.offgrid.solardashboard.ble.VictronScanner
+import com.offgrid.solardashboard.data.AlertConfig
+import com.offgrid.solardashboard.data.AlertStore
+import com.offgrid.solardashboard.data.AppSettings
+import com.offgrid.solardashboard.data.DeviceConfig
 import com.offgrid.solardashboard.data.HistoryStore
 import com.offgrid.solardashboard.data.MonitorState
 import com.offgrid.solardashboard.data.SettingsRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 
 /**
  * UI state holder for the dashboard and settings screens. Live readings and
@@ -24,6 +29,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = SettingsRepository(app)
     private val historyStore = HistoryStore(app)
+    private val alertStore = AlertStore(app)
 
     /** Latest reading snapshot shared with the polling service. */
     val monitor: StateFlow<MonitorState.Snapshot> = MonitorState.state
@@ -85,17 +91,25 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Run a one-off BLE scan and return the Victron devices in range so the
      * settings editor can prepopulate a MAC. The advertisement key is never
-     * broadcast, so the user still supplies that by hand.
+     * broadcast, so the user still supplies that by hand. MACs in [exclude]
+     * (already-configured devices) are filtered out.
      */
-    suspend fun discoverVictron(seconds: Int = 8): List<VictronScanner.Discovered> {
+    suspend fun discoverVictron(exclude: Set<String> = emptySet(), seconds: Int = 8): List<VictronScanner.Discovered> {
         val scanner = VictronScanner(getApplication())
         scanner.scan(seconds)
-        return scanner.discovered()
+        return scanner.discovered().filter { it.mac.uppercase() !in exclude }
     }
 
-    /** Scan for nearby BLE devices for the BMS picker (likely-BMS flagged first). */
-    suspend fun discoverBms(seconds: Int = 8): List<BmsScanner.Discovered> =
-        BmsScanner(getApplication()).scan(seconds)
+    /**
+     * Scan for nearby BLE devices for the BMS picker (likely-BMS flagged first).
+     * MACs in [exclude] (already-configured devices) are filtered out.
+     */
+    suspend fun discoverBms(exclude: Set<String> = emptySet(), seconds: Int = 8): List<BmsScanner.Discovered> =
+        BmsScanner(getApplication()).scan(seconds).filter { it.mac.uppercase() !in exclude }
+
+    /** MACs of all configured devices (uppercased, blanks dropped). */
+    fun configuredMacs(): Set<String> =
+        _devices.value.mapNotNull { it.mac.takeIf(String::isNotBlank)?.uppercase() }.toSet()
 
     // ── Database maintenance ──────────────────────────────────────────────────
 
@@ -111,4 +125,21 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     /** Delete history within an inclusive date window (YYYY-MM-DD or ISO). */
     fun pruneHistoryRange(start: String?, end: String?): Int =
         historyStore.pruneRange(start, end)
+
+    // ── Low-battery alerts ────────────────────────────────────────────────────
+
+    /** Current alert configuration (decrypted from the encrypted store). */
+    fun loadAlertConfig(): AlertConfig = alertStore.load()
+
+    /** Persist alert configuration. Re-arms so a new threshold can fire again. */
+    fun saveAlertConfig(config: AlertConfig) {
+        alertStore.save(config)
+        alertStore.setArmed(true)
+    }
+
+    /** Send a test alert over the enabled channels; returns a per-channel summary. */
+    suspend fun sendTestAlert(config: AlertConfig): String =
+        withContext(Dispatchers.IO) {
+            AlertDispatcher.sendTest(getApplication(), config).summary()
+        }
 }

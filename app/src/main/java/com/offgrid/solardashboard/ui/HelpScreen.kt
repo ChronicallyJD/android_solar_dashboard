@@ -34,7 +34,7 @@ fun HelpScreen() {
         Section("Getting started")
         Step("1", "Open Settings (gear icon, top right).")
         Step("2", "Tap “Add BMS” for a battery pack, or “Add Victron” for a solar charger, inverter, or monitor.")
-        Step("3", "Tap “Scan for nearby devices” and pick yours from the list. This fills in the Bluetooth MAC for you.")
+        Step("3", "Tap “Scan for nearby devices” and pick yours from the list. This fills in the Bluetooth MAC for you. Devices you have already added are hidden.")
         Step("4", "For Victron devices, paste the advertisement key (see below). For a BMS, set the password only if yours needs one (default 0000).")
         Step("5", "Save. The device appears on the dashboard within one poll cycle.")
 
@@ -59,10 +59,11 @@ fun HelpScreen() {
 
         Section("Energy card")
         Body("Harnessing is the power your solar is producing right now. Expending is the power your " +
-            "inverters are delivering to loads right now. $ Saved is the value of the solar energy " +
-            "harvested so far today (the sum of each charger's yield for the day), priced at the " +
-            "national average residential electricity rate. It resets with the daily yield and is an " +
-            "estimate, not your actual utility rate.")
+            "inverters are delivering to loads right now. $ Saved is the value of the energy your " +
+            "loads used so far today, priced at the national average residential electricity rate. " +
+            "It is based on load energy, not solar harvested, so it keeps climbing at night while the " +
+            "battery runs your loads, and it resets at midnight. It is an estimate, not your actual " +
+            "utility rate.")
 
         Section("Collapsing sections")
         Body("Tap a section header (MPPT Chargers, Inverters, Battery Packs) to collapse or expand " +
@@ -76,6 +77,22 @@ fun HelpScreen() {
         Body("Set how often devices are polled (BMS and Victron have separate intervals), the scan " +
             "window length, how many chart points to keep, and whether readings are saved to the " +
             "history database and for how long.")
+
+        Section("Low-battery alerts")
+        Body("Under Settings, Low-Battery Alerts notifies you when the average battery state of charge " +
+            "drops below a threshold you set. It sends once when the battery crosses below the threshold, " +
+            "then again only after it recovers a few percent above, so you are not messaged repeatedly. " +
+            "Three channels can run together:")
+        Body("Email: sends through Gmail. Enter your Gmail address, a Gmail App Password, and where to " +
+            "send the alert. The App Password is required because Google no longer allows normal passwords " +
+            "for this. Create one at your Google account, Security, 2-Step Verification (turn it on if " +
+            "needed), then App passwords. Paste the 16-character password into the app.\n" +
+            "SMS: sends a text from this phone's own number to a number you enter. It needs the SMS " +
+            "permission and cell service, and standard message rates apply.\n" +
+            "Phone notification: shows a notification on this phone. No setup needed.")
+        Body("Use \"Send test alert\" to confirm your setup over every enabled channel before you rely on it. " +
+            "Alert settings, including the Gmail App Password, are stored encrypted on this phone and are " +
+            "only ever sent to Gmail's mail server.")
 
         Section("Database maintenance")
         Body("Under Settings you can delete stored history by date range, or all of it. Deletion is " +

@@ -25,6 +25,10 @@ that talks to your devices directly over the phone's Bluetooth.
 - **Foreground service**: polls on the configured cadence (Victron scan every
   ~30 s, BMS GATT every ~120 s, BMS read one-at-a-time) and persists successful
   readings to a local SQLite history database with retention.
+- **Low-battery alerts**: when the average battery state of charge drops below a
+  configurable threshold, notify by email (Gmail SMTP with an App Password), SMS
+  (from the phone's own SIM), and/or a local notification. Fires once per dip
+  with re-arm hysteresis. Credentials are stored encrypted (Android Keystore).
 - **Help and maintenance**: an in-app help screen documents setup; history can
   be pruned by date range or in full, gated behind biometric or PIN unlock.
 

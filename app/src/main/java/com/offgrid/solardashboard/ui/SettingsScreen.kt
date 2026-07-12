@@ -1,5 +1,9 @@
 package com.offgrid.solardashboard.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +43,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
@@ -118,6 +126,8 @@ fun SettingsScreen(vm: DashboardViewModel) {
             ))
         }, modifier = Modifier.padding(top = 8.dp)) { Text("Save settings") }
 
+        AlertsSection(vm)
+
         DatabaseMaintenanceSection(vm)
 
         androidx.compose.foundation.layout.Spacer(Modifier.padding(32.dp))
@@ -134,6 +144,114 @@ fun SettingsScreen(vm: DashboardViewModel) {
             },
         )
     }
+}
+
+@Composable
+private fun AlertsSection(vm: DashboardViewModel) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var cfg by remember { mutableStateOf(vm.loadAlertConfig()) }
+    var status by remember { mutableStateOf<String?>(null) }
+    var testing by remember { mutableStateOf(false) }
+
+    val smsPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        cfg = cfg.copy(smsEnabled = granted)
+        if (!granted) status = "SMS permission denied. Text alerts will not send."
+    }
+    fun enableSms() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS)
+            == PackageManager.PERMISSION_GRANTED
+        ) cfg = cfg.copy(smsEnabled = true)
+        else smsPermLauncher.launch(Manifest.permission.SEND_SMS)
+    }
+
+    Divider(Modifier.padding(vertical = 16.dp))
+    Text("Low-Battery Alerts", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+    Text("Notify you when the average battery state of charge drops below a threshold.",
+        fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+        modifier = Modifier.padding(vertical = 4.dp))
+
+    SwitchRow("Enable alerts", cfg.enabled) { cfg = cfg.copy(enabled = it) }
+
+    if (cfg.enabled) {
+        var threshold by remember(cfg.enabled) { mutableStateOf(cfg.thresholdPct.toString()) }
+        NumField("Alert threshold (% SoC)", threshold) {
+            threshold = it
+            cfg = cfg.copy(thresholdPct = it.toIntOrNull()?.coerceIn(1, 100) ?: 20)
+        }
+
+        // Email
+        SwitchRow("Email (Gmail)", cfg.emailEnabled) { cfg = cfg.copy(emailEnabled = it) }
+        if (cfg.emailEnabled) {
+            Field("From Gmail address", cfg.senderGmail) { cfg = cfg.copy(senderGmail = it.trim()) }
+            PasswordField("Gmail app password (16 chars)", cfg.appPassword) { cfg = cfg.copy(appPassword = it) }
+            Field("Send alerts to (email)", cfg.recipientEmail) { cfg = cfg.copy(recipientEmail = it.trim()) }
+            Text("Needs a Gmail App Password (Google account, Security, 2-Step Verification, App passwords). " +
+                "Your normal password will not work.",
+                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(bottom = 4.dp))
+        }
+
+        // SMS
+        SwitchRow("SMS (this phone's number)", cfg.smsEnabled) {
+            if (it) enableSms() else cfg = cfg.copy(smsEnabled = false)
+        }
+        if (cfg.smsEnabled) {
+            Field("Send alerts to (phone number)", cfg.smsNumber) { cfg = cfg.copy(smsNumber = it.trim()) }
+            Text("Sends from this phone's SIM. Standard message rates apply.",
+                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(bottom = 4.dp))
+        }
+
+        // Notification
+        SwitchRow("Phone notification", cfg.notifyEnabled) { cfg = cfg.copy(notifyEnabled = it) }
+
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { vm.saveAlertConfig(cfg); status = "Alert settings saved." }) {
+                Text("Save alerts")
+            }
+            OutlinedButton(
+                enabled = !testing,
+                onClick = {
+                    scope.launch {
+                        vm.saveAlertConfig(cfg)
+                        testing = true; status = "Sending test alert…"
+                        status = vm.sendTestAlert(cfg)
+                        testing = false
+                    }
+                },
+            ) { Text("Send test alert") }
+        }
+    } else {
+        Button(onClick = { vm.saveAlertConfig(cfg); status = "Alert settings saved." },
+            modifier = Modifier.padding(top = 8.dp)) { Text("Save alerts") }
+    }
+
+    status?.let {
+        Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun PasswordField(label: String, value: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value, onValueChange = onChange, label = { Text(label) },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+    )
 }
 
 @Composable
@@ -275,11 +393,15 @@ private fun DeviceEditorDialog(
                 ScanButton(scanning) {
                     scope.launch {
                         scanning = true; scanNote = null; foundVic = emptyList(); foundBms = emptyList()
-                        if (isVictron) foundVic = vm.discoverVictron() else foundBms = vm.discoverBms()
+                        // Hide devices already configured, but keep the one being
+                        // edited so it can still be re-selected.
+                        val exclude = vm.configuredMacs() - initial.mac.uppercase()
+                        if (isVictron) foundVic = vm.discoverVictron(exclude)
+                        else foundBms = vm.discoverBms(exclude)
                         scanning = false
                         val empty = if (isVictron) foundVic.isEmpty() else foundBms.isEmpty()
                         scanNote = when {
-                            empty -> "No devices found. Ensure Bluetooth is on and you're in range."
+                            empty -> "No new devices found. Nearby devices may already be added, or Bluetooth is off or out of range."
                             isVictron -> "Tap a device to fill its MAC. Then paste its advertisement key below."
                             else -> "Tap your BMS to fill its MAC. Likely batteries are marked."
                         }
