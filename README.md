@@ -110,3 +110,7 @@ This port focuses on the on-device monitoring experience. The Python project's
 optional HTTPS server and MCP server are host-oriented features and are not part
 of the phone app; the dashboard, history, alerts, and both device protocols are
 fully reproduced.
+
+## License
+
+Released under the [MIT License](LICENSE).
