@@ -139,6 +139,44 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
         return out
     }
 
+    /**
+     * Energy delivered to loads since [sinceIso], integrated from the stored
+     * inverter AC-output samples (trapezoidal between consecutive samples,
+     * summed across inverters at each timestamp). Because the samples are
+     * persisted, this value survives a service restart, unlike an in-memory
+     * accumulator. Intervals longer than [maxGapMs] are skipped, so a long
+     * monitoring outage does not get credited as continuous load. Returns Wh.
+     */
+    fun loadEnergyTodayWh(sinceIso: String, maxGapMs: Long = 15 * 60 * 1000L): Double {
+        val samples = ArrayList<Pair<Long, Double>>() // epoch millis, summed watts
+        readableDatabase.rawQuery(
+            "SELECT recorded_at, SUM(ac_out_power_va) FROM readings " +
+                "WHERE device_type = 'inverter' AND ac_out_power_va IS NOT NULL " +
+                "AND recorded_at >= ? GROUP BY recorded_at ORDER BY recorded_at",
+            arrayOf(sinceIso),
+        ).use { c ->
+            while (c.moveToNext()) {
+                val t = isoToMillis(c.getString(0)) ?: continue
+                samples.add(t to c.getDouble(1))
+            }
+        }
+        var wh = 0.0
+        for (i in 1 until samples.size) {
+            val dtMs = samples[i].first - samples[i - 1].first
+            if (dtMs <= 0 || dtMs > maxGapMs) continue
+            val avgW = (samples[i].second + samples[i - 1].second) / 2.0
+            wh += avgW * (dtMs / 3_600_000.0)
+        }
+        return wh
+    }
+
+    private fun isoToMillis(s: String): Long? = try {
+        java.time.LocalDateTime.parse(s)
+            .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    } catch (e: Exception) {
+        null
+    }
+
     // ── Maintenance ─────────────────────────────────────────────────────────
 
     data class Stats(val rowCount: Int, val oldest: String?, val newest: String?)

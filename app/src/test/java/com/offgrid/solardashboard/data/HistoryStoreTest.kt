@@ -139,4 +139,62 @@ class HistoryStoreTest {
         assertNull(s.oldest)
         assertNull(s.newest)
     }
+
+    // ── Load-energy integration (backs "$ Saved") ───────────────────────────
+
+    private fun inverter(ts: String, acW: Double) = DeviceReading(
+        address = "INV", name = "Inv", deviceType = "inverter", timestamp = ts,
+        acOutPowerVa = acW,
+    )
+
+    @Test fun loadEnergyIntegratesConstantPower() {
+        // 1000 W held over two 15-minute intervals = 1000 W over 0.5 h = 500 Wh.
+        store.writeReadings(listOf(
+            inverter("2026-07-12T00:00:00", 1000.0),
+            inverter("2026-07-12T00:15:00", 1000.0),
+            inverter("2026-07-12T00:30:00", 1000.0),
+        ), retentionDays = 0)
+        val wh = store.loadEnergyTodayWh("2026-07-12T00:00:00")
+        assertEquals(500.0, wh, 1e-6)
+    }
+
+    @Test fun loadEnergyTrapezoidAverages() {
+        // 1000 W then 2000 W, 15 min apart: avg 1500 W over 0.25 h = 375 Wh.
+        store.writeReadings(listOf(
+            inverter("2026-07-12T00:00:00", 1000.0),
+            inverter("2026-07-12T00:15:00", 2000.0),
+        ), retentionDays = 0)
+        assertEquals(375.0, store.loadEnergyTodayWh("2026-07-12T00:00:00"), 1e-6)
+    }
+
+    @Test fun loadEnergySkipsLongGaps() {
+        // A 3-hour gap (longer than the 15-min cap) is not credited.
+        store.writeReadings(listOf(
+            inverter("2026-07-12T00:00:00", 1000.0),
+            inverter("2026-07-12T03:00:00", 1000.0),
+            inverter("2026-07-12T03:15:00", 1000.0),
+        ), retentionDays = 0)
+        // Only the final 15-min interval counts: 1000 W over 0.25 h = 250 Wh.
+        assertEquals(250.0, store.loadEnergyTodayWh("2026-07-12T00:00:00"), 1e-6)
+    }
+
+    @Test fun loadEnergySumsMultipleInverters() {
+        // Two inverters at the same timestamps: powers add before integrating.
+        store.writeReadings(listOf(
+            inverter("2026-07-12T00:00:00", 600.0),
+            inverter("2026-07-12T00:15:00", 600.0),
+        ), retentionDays = 0)
+        store.writeReadings(listOf(
+            DeviceReading(address = "INV2", name = "Inv2", deviceType = "inverter",
+                timestamp = "2026-07-12T00:00:00", acOutPowerVa = 400.0),
+            DeviceReading(address = "INV2", name = "Inv2", deviceType = "inverter",
+                timestamp = "2026-07-12T00:15:00", acOutPowerVa = 400.0),
+        ), retentionDays = 0)
+        // 1000 W total over 0.25 h = 250 Wh.
+        assertEquals(250.0, store.loadEnergyTodayWh("2026-07-12T00:00:00"), 1e-6)
+    }
+
+    @Test fun loadEnergyZeroWithoutSamples() {
+        assertEquals(0.0, store.loadEnergyTodayWh("2026-07-12T00:00:00"), 1e-9)
+    }
 }

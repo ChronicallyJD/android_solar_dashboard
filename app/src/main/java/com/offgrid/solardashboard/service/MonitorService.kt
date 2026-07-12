@@ -101,28 +101,39 @@ class MonitorService : Service() {
      * Restore today's load-energy total from storage so "$ Saved" survives a
      * restart, or start fresh if the stored total is from a previous day.
      */
-    private fun seedLoadEnergy() {
+    private fun seedLoadEnergy(historyEnabled: Boolean) {
         val (storedDate, storedWh) = energyStore.load()
         energyState = EnergyAccumulator.seed(
             storedDate, storedWh, LocalDate.now().toString(), System.currentTimeMillis(),
         )
         energyStore.save(energyState.date, energyState.wh)
-        MonitorState.setLoadEnergy(energyState.wh)
+        MonitorState.setLoadEnergy(publishedLoadEnergy(historyEnabled))
     }
 
     /**
-     * Add the energy delivered to loads over the interval just elapsed: current
-     * total inverter AC output times the time since the last accumulation. Resets
-     * to zero when the local date rolls over. Persisted every cycle so a restart
-     * resumes the same running total.
+     * Update the daily load-energy total. When history is enabled the value is
+     * integrated from the persisted inverter samples, which survives a restart.
+     * The in-memory accumulator is kept up to date as a fallback for when history
+     * is disabled (or a query fails).
      */
-    private fun accumulateLoadEnergy(fresh: List<DeviceReading>) {
+    private fun accumulateLoadEnergy(fresh: List<DeviceReading>, historyEnabled: Boolean) {
         val loadW = fresh.filter { it.deviceType == "inverter" }.mapNotNull { it.acOutPowerVa }.sum()
         energyState = EnergyAccumulator.accumulate(
             energyState, System.currentTimeMillis(), LocalDate.now().toString(), loadW,
         )
         energyStore.save(energyState.date, energyState.wh)
-        MonitorState.setLoadEnergy(energyState.wh)
+        MonitorState.setLoadEnergy(publishedLoadEnergy(historyEnabled))
+    }
+
+    /** Prefer the restart-durable DB integration; fall back to the accumulator. */
+    private fun publishedLoadEnergy(historyEnabled: Boolean): Double {
+        if (!historyEnabled) return energyState.wh
+        return try {
+            history.loadEnergyTodayWh("${LocalDate.now()}T00:00:00")
+        } catch (e: Exception) {
+            Log.w(TAG, "load energy from history failed: ${e.message}")
+            energyState.wh
+        }
     }
 
     /**
@@ -168,8 +179,9 @@ class MonitorService : Service() {
     }
 
     private suspend fun pollLoop() {
-        seedFromDb(settingsRepo.loadSettings())
-        seedLoadEnergy()
+        val initial = settingsRepo.loadSettings()
+        seedFromDb(initial)
+        seedLoadEnergy(initial.historyEnabled)
         while (scope.isActive) {
             val settings = settingsRepo.loadSettings()
             val devices = settingsRepo.loadDevices()
@@ -234,7 +246,7 @@ class MonitorService : Service() {
                 updateNotification(fresh)
             }
 
-            accumulateLoadEnergy(fresh)
+            accumulateLoadEnergy(fresh, settings.historyEnabled)
             evaluateAlerts()
 
             val interval = minOf(
