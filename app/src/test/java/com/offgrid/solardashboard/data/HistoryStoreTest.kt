@@ -197,4 +197,30 @@ class HistoryStoreTest {
     @Test fun loadEnergyZeroWithoutSamples() {
         assertEquals(0.0, store.loadEnergyTodayWh("2026-07-12T00:00:00"), 1e-9)
     }
+
+    // ── CSV export ──────────────────────────────────────────────────────────
+
+    @Test fun csvHasHeaderAndRows() {
+        store.writeReadings(listOf(
+            reading("Batt0", "2026-07-12T10:00:00", soc = 70, v = 53.1),
+            reading("Batt1", "2026-07-12T11:00:00", soc = 60, v = 52.0),
+        ), retentionDays = 0)
+        val csv = store.allRowsCsv().trim().lines()
+        assertEquals("recorded_at,device_name,device_type,address,voltage_v,current_a," +
+            "power_w,capacity_pct,pv_power_w,yield_today_wh,ac_out_power_va", csv[0])
+        assertEquals(3, csv.size) // header + 2 rows
+        assertTrue(csv[1].startsWith("2026-07-12T10:00:00,Batt0,bms,"))
+    }
+
+    @Test fun csvEscapesCommasInNames() {
+        store.writeReadings(listOf(
+            reading("Batt,0", "2026-07-12T10:00:00"),
+        ), retentionDays = 0)
+        val row = store.allRowsCsv().trim().lines()[1]
+        assertTrue(row.contains("\"Batt,0\""))
+    }
+
+    @Test fun csvHeaderOnlyWhenEmpty() {
+        assertEquals(1, store.allRowsCsv().trim().lines().size)
+    }
 }

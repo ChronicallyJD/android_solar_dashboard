@@ -177,6 +177,27 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
         null
     }
 
+    /** All stored readings as CSV text (header row plus one row per reading). */
+    fun allRowsCsv(): String {
+        val cols = listOf(
+            "recorded_at", "device_name", "device_type", "address", "voltage_v",
+            "current_a", "power_w", "capacity_pct", "pv_power_w", "yield_today_wh", "ac_out_power_va",
+        )
+        val sb = StringBuilder(cols.joinToString(",")).append('\n')
+        readableDatabase.rawQuery(
+            "SELECT ${cols.joinToString(",")} FROM readings ORDER BY recorded_at", null,
+        ).use { c ->
+            while (c.moveToNext()) {
+                sb.append((0 until c.columnCount).joinToString(",") { csvEscape(if (c.isNull(it)) "" else c.getString(it)) })
+                sb.append('\n')
+            }
+        }
+        return sb.toString()
+    }
+
+    private fun csvEscape(v: String): String =
+        if (v.any { it == ',' || it == '"' || it == '\n' }) "\"${v.replace("\"", "\"\"")}\"" else v
+
     // ── Maintenance ─────────────────────────────────────────────────────────
 
     data class Stats(val rowCount: Int, val oldest: String?, val newest: String?)

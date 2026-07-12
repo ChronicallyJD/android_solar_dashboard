@@ -126,6 +126,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     fun pruneHistoryRange(start: String?, end: String?): Int =
         historyStore.pruneRange(start, end)
 
+    /** All stored history as CSV text, for export/sharing. */
+    fun historyCsv(): String = historyStore.allRowsCsv()
+
     // ── Low-battery alerts ────────────────────────────────────────────────────
 
     /** Current alert configuration (decrypted from the encrypted store). */

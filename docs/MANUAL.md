@@ -178,7 +178,8 @@ pack shows why, for example a connection timeout.
 Scroll to the bottom of the dashboard for historical trend charts: battery
 voltage, battery current, PV power, and state of charge. Each device is a colored
 series with a legend, so you can compare packs and chargers over time. The number
-of points kept is set in Settings.
+of points kept is set in Settings. Use the **1h / 6h / 24h / All** buttons next to
+"Historical Trends" to zoom the charts to a recent window.
 
 ![History charts](images/dashboard-history.png)
 
@@ -252,7 +253,8 @@ date, leaving a bound blank for open-ended) or clear all history.
 ![Database maintenance](images/settings-database.png)
 
 Deletion is permanent and requires unlocking with your fingerprint, face, or PIN
-first.
+first. **Export CSV** writes all stored readings to a CSV file and opens the share
+sheet so you can save or send it (to a file manager, cloud drive, or email).
 
 ## 12. Help screen
 

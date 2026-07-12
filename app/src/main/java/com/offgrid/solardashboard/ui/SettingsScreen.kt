@@ -1,7 +1,11 @@
 package com.offgrid.solardashboard.ui
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -306,6 +310,25 @@ private fun PasswordField(label: String, value: String, onChange: (String) -> Un
     )
 }
 
+/** Write [csv] to a cache file and open the system share sheet for it. */
+private fun shareCsv(context: Context, csv: String): Boolean = try {
+    val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+    val file = File(dir, "solar-history.csv")
+    file.writeText(csv)
+    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/csv"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(
+        Intent.createChooser(send, "Export history").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+    true
+} catch (e: Exception) {
+    false
+}
+
 @Composable
 private fun DatabaseMaintenanceSection(vm: DashboardViewModel) {
     val scope = rememberCoroutineScope()
@@ -316,7 +339,8 @@ private fun DatabaseMaintenanceSection(vm: DashboardViewModel) {
     var from by remember { mutableStateOf("") }
     var to by remember { mutableStateOf("") }
 
-    val activity = LocalContext.current as? FragmentActivity
+    val context = LocalContext.current
+    val activity = context as? FragmentActivity
     // Gate a destructive action behind device auth (biometric / PIN). If the
     // device has no lock enrolled there is nothing to check against, so proceed.
     val authThen: (String, () -> Unit) -> Unit = { reason, action ->
@@ -370,6 +394,18 @@ private fun DatabaseMaintenanceSection(vm: DashboardViewModel) {
             Text("Clear all", color = SolarColors.Red)
         }
     }
+    OutlinedButton(
+        enabled = (stats?.rowCount ?: 0) > 0,
+        onClick = {
+            scope.launch {
+                status = "Preparing export…"
+                val csv = withContext(Dispatchers.IO) { vm.historyCsv() }
+                val ok = shareCsv(context, csv)
+                status = if (ok) "Opened share sheet." else "Export failed."
+            }
+        },
+        modifier = Modifier.padding(top = 4.dp),
+    ) { Text("Export CSV") }
     status?.let {
         Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(top = 6.dp))

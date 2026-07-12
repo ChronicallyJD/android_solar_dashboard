@@ -268,22 +268,62 @@ private fun AggregateCard(label: String, value: String, subtitle: String, color:
     }
 }
 
+/** Selectable chart windows. hours = null means show everything loaded. */
+private enum class ChartRange(val label: String, val hours: Long?) {
+    H1("1h", 1), H6("6h", 6), H24("24h", 24), ALL("All", null)
+}
+
 @Composable
 private fun HistorySection(vm: DashboardViewModel) {
     val history by vm.history.collectAsStateWithLifecycle()
     if (history.isEmpty()) return
+    var range by remember { mutableStateOf(ChartRange.ALL) }
+
     Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-        Text("Historical Trends", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Historical Trends", fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                modifier = Modifier.weight(1f))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                ChartRange.values().forEach { r -> RangeChip(r.label, r == range) { range = r } }
+            }
+        }
+
+        // Cut off points older than the selected window (timestamps are ISO
+        // local strings, which sort lexicographically).
+        val cutoff = range.hours?.let {
+            LocalDateTime.now().minusHours(it).format(CHART_TS)
+        }
         val names = history.keys.toList()
         fun seriesFor(pick: (MonitorState.HistPoint) -> Double?) = names.mapIndexed { i, name ->
-            Series(name, SolarColors.ChartPalette[i % SolarColors.ChartPalette.size],
-                history[name]!!.map { pick(it) })
+            val points = history[name]!!.let { pts ->
+                if (cutoff == null) pts else pts.filter { it.timestamp >= cutoff }
+            }
+            Series(name, SolarColors.ChartPalette[i % SolarColors.ChartPalette.size], points.map(pick))
         }
         LineChart("Battery Voltage (V)", seriesFor { it.voltageV })
         LineChart("Battery Current (A)", seriesFor { it.currentA })
         LineChart("PV Power (W)", seriesFor { it.pvPowerW })
         LineChart("State of Charge (%)", seriesFor { it.capacityPct?.toDouble() })
     }
+}
+
+private val CHART_TS = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+
+@Composable
+private fun RangeChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    Text(
+        label,
+        fontSize = 12.sp,
+        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (selected) 1f else 0.7f),
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .background(bg)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
 }
 
 @Composable
