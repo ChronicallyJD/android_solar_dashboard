@@ -1,0 +1,15 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Build output artifacts (the debug APK is produced by the build)
+dist/
+
+# Local Claude Code overrides
+.claude/settings.local.json
