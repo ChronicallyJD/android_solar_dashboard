@@ -95,10 +95,11 @@ object EnergyAccumulator {
      * instead of zero. The lifetime total takes the larger of the carried and the
      * reconstructed value: a real upgrade carries zero so history wins, while a
      * legitimately larger carried total (retention pruned the history) is kept, so
-     * the lifetime never regresses below today's total. The recent-day window is
-     * filled only when still empty, and the first-seen date is pulled back to the
-     * earliest of the two. [historyRecentDays] should already exclude today's
-     * partial day.
+     * the lifetime never regresses below today's total. The recent-day window takes
+     * whichever source has more days: a fresh upgrade has at most one day folded in
+     * by [seed], so the fuller history reconstruction wins. The first-seen date is
+     * pulled back to the earliest of the two. [historyRecentDays] should already
+     * exclude today's partial day.
      */
     fun backfill(
         state: State,
@@ -108,8 +109,8 @@ object EnergyAccumulator {
     ): State {
         val lifetimeWh = maxOf(state.lifetimeWh, historyLifetimeWh)
         val recentDays =
-            if (state.recentDays.isNotEmpty()) state.recentDays
-            else historyRecentDays.takeLast(RECENT_WINDOW)
+            if (historyRecentDays.size > state.recentDays.size) historyRecentDays.takeLast(RECENT_WINDOW)
+            else state.recentDays
         val firstDate =
             if (historyFirstDate != null && historyFirstDate < state.firstDate) historyFirstDate
             else state.firstDate

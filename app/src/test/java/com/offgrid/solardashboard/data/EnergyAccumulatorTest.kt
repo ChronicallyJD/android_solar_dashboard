@@ -158,7 +158,7 @@ class EnergyAccumulatorTest {
         assertEquals(listOf(900.0, 1100.0), s.recentDays)
     }
 
-    @Test fun backfillTakesLargerLifetimeFromHistory() {
+    @Test fun backfillTakesLargerLifetimeAndWindowFromHistory() {
         val existing = EnergyAccumulator.State(
             "2026-07-13", 10.0, 0L, lifetimeWh = 200.0,
             firstDate = "2026-07-01", recentDays = listOf(50.0),
@@ -168,10 +168,20 @@ class EnergyAccumulatorTest {
             historyFirstDate = "2026-05-01", historyRecentDays = listOf(1.0, 2.0),
         )
         // History reconstructs a larger total than the tiny carried value: prefer it,
-        // so lifetime never sits below today's total. Window kept; first date pulled back.
+        // so lifetime never sits below today's total. The richer history window (2 days)
+        // replaces the single seed-folded day; first date is pulled back.
         assertEquals(9999.0, s.lifetimeWh, 1e-9)
-        assertEquals(listOf(50.0), s.recentDays)
+        assertEquals(listOf(1.0, 2.0), s.recentDays)
         assertEquals("2026-05-01", s.firstDate)
+    }
+
+    @Test fun backfillKeepsLargerCarriedWindow() {
+        // If the carried window somehow has more days than history, keep it.
+        val existing = EnergyAccumulator.State(
+            "2026-07-13", 0.0, 0L, recentDays = listOf(10.0, 20.0, 30.0),
+        )
+        val s = EnergyAccumulator.backfill(existing, 100.0, "2026-07-10", listOf(5.0))
+        assertEquals(listOf(10.0, 20.0, 30.0), s.recentDays)
     }
 
     @Test fun backfillKeepsLargerCarriedLifetime() {

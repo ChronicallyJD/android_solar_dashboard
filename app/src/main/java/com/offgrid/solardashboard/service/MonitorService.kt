@@ -110,8 +110,12 @@ class MonitorService : Service() {
             stored.lifetimeWh, stored.firstDate, stored.recentDays,
         )
         if (!stored.backfilled) {
-            energyState = backfillLoadEnergyFromHistory(energyState)
-            energyStore.markBackfilled()
+            // Only consume the one-time backfill once it actually ran; a failed
+            // query returns null so the reconstruction is retried on the next launch.
+            backfillLoadEnergyFromHistory(energyState)?.let {
+                energyState = it
+                energyStore.markBackfilled()
+            }
         }
         energyStore.save(energyState)
         publishLoadEnergy(historyEnabled)
@@ -121,21 +125,24 @@ class MonitorService : Service() {
      * On the first launch after upgrading, reconstruct the lifetime total, the
      * first-seen date, and the projection window from whatever history the DB still
      * holds, so existing installs start with real numbers instead of zero. Bounded
-     * by the history retention window; a query failure leaves the state untouched.
+     * by the history retention window. Returns null on a query failure so the caller
+     * leaves the backfill unconsumed and retries later; empty history is a no-op that
+     * still counts as done. Zero-energy days are dropped from the window to match the
+     * live accumulator, which only snapshots days that served load.
      */
-    private fun backfillLoadEnergyFromHistory(state: EnergyAccumulator.State): EnergyAccumulator.State =
+    private fun backfillLoadEnergyFromHistory(state: EnergyAccumulator.State): EnergyAccumulator.State? =
         try {
             val daily = history.dailyLoadEnergyWh()
             if (daily.isEmpty()) state
             else {
                 val today = LocalDate.now().toString()
                 val lifetimeWh = daily.sumOf { it.second }
-                val recentDays = daily.filter { it.first != today }.map { it.second }
+                val recentDays = daily.filter { it.first != today && it.second > 0.0 }.map { it.second }
                 EnergyAccumulator.backfill(state, lifetimeWh, daily.first().first, recentDays)
             }
         } catch (e: Exception) {
             Log.w(TAG, "load-energy history backfill failed: ${e.message}")
-            state
+            null
         }
 
     /**
