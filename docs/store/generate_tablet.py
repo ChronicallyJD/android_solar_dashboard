@@ -69,11 +69,11 @@ def make_tablet(shots, W, H, out):
     gap = int(W * 0.045)
     avail_h = H - int(hh * 1.25) - int(H * 0.05)
     panel_h = int(avail_h)
-    panel_w = int(panel_h * 1080 / 2160)
+    panel_w = int(panel_h * 1080 / 1920)
     total_w = n * panel_w + (n - 1) * gap
     while total_w > W * 0.94:  # shrink to fit width
         panel_h -= 20
-        panel_w = int(panel_h * 1080 / 2160)
+        panel_w = int(panel_h * 1080 / 1920)
         total_w = n * panel_w + (n - 1) * gap
     x0 = (W - total_w) // 2
     y0 = int(hh * 1.25) + (avail_h - panel_h) // 2
@@ -105,7 +105,7 @@ GROUPS = [
     (["01-dashboard.png", "02-devices.png", "03-batteries.png"], "a"),
     (["04-history.png", "05-alerts.png", "06-help.png"], "b"),
 ]
-for sub, W, H in [("tablet-7in", 1920, 1200), ("tablet-10in", 2560, 1600)]:
+for sub, W, H in [("tablet-7in", 1920, 1080), ("tablet-10in", 2560, 1440)]:
     os.makedirs(f"{BASE}/{sub}", exist_ok=True)
     for shots, tag in GROUPS:
         make_tablet(shots, W, H, f"{BASE}/{sub}/{tag}.png")
