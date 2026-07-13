@@ -42,6 +42,7 @@ usage with screenshots. Grab the latest signed APK from
 
 - [User manual](docs/MANUAL.md) with screenshots: installation, setup, reading
   the dashboard, every setting, alerts, and troubleshooting.
+- [Privacy policy](PRIVACY.md).
 - [Changelog](CHANGELOG.md).
 
 ## Protocol parity

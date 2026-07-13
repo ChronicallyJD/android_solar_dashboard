@@ -357,3 +357,6 @@ local database on the device. The only outbound network traffic is the
 low-battery alerts you configure: email goes to Gmail's SMTP server, SMS goes
 through your carrier. Alert credentials are stored encrypted using the Android
 Keystore.
+
+The full [privacy policy](../PRIVACY.md) covers what data the app stores, the
+permissions it uses, and what leaves your phone.
