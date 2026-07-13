@@ -3,7 +3,7 @@
 All notable changes to Solar Dashboard for Android are documented here. Dates are
 in YYYY-MM-DD.
 
-## [Unreleased]
+## [1.1.0] - 2026-07-13
 
 ### Changed
 
