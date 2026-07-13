@@ -17,6 +17,12 @@ in YYYY-MM-DD.
   backfilled from stored history on the first launch after upgrading (bounded by
   the retention window) so the projection is populated immediately.
 
+### Documentation
+
+- Added a list of battery brands known to use a JBD BMS (and so expected to work)
+  to the manual and in-app Help, with the caveat that it is community-reported and
+  that the Xiaoxiang app is the test for a given pack.
+
 ## [1.0.0] - 2026-07-12
 
 First public release. Signed APK attached to the

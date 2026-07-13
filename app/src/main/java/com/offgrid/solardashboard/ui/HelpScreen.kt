@@ -44,6 +44,13 @@ fun HelpScreen() {
             "“Instant readout via Bluetooth”, then Show. Copy the 32-character advertisement key and " +
             "paste it into the key field. The app accepts extra spaces or a MAC prefix.")
 
+        Section("Supported batteries")
+        Body("Battery packs are read over a JBD (Jiabaida) Bluetooth BMS, the same protocol the " +
+            "Xiaoxiang / JBD BMS app uses. Many rebranded LiFePO4 batteries ship a JBD BMS and " +
+            "should work. If a pack connects in the Xiaoxiang app, this app should read it too. " +
+            "Batteries on a different BMS (for example Daly, or brands with their own app) will not. " +
+            "The manual lists known brands.")
+
         Section("Device types (Victron)")
         Body("mppt: SmartSolar or BlueSolar solar charger.\n" +
             "inverter: Phoenix, MultiPlus, Quattro, VE.Bus.\n" +

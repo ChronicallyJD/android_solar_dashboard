@@ -112,6 +112,62 @@ and a delete button.
 
 ![Configured devices](images/settings-devices.png)
 
+### Supported batteries
+
+The app reads batteries whose Bluetooth BMS is a JBD (Jiabaida) unit, the same
+protocol used by the Xiaoxiang / JBD BMS app. Many rebranded LiFePO4 batteries
+ship a JBD BMS, so they should work even though they are sold under their own
+name.
+
+The list below is reported by the community and is not a guarantee. Firmware and
+Bluetooth modules vary between production runs, and a brand may switch BMS
+suppliers. Brands known to use a JBD BMS include:
+
+- accurat
+- Aolithium
+- BasenGreen
+- Bulltron
+- CHINS
+- Cloud Energy
+- DCHOUSE
+- ECO-WORTHY
+- Eleksol
+- Elfhub
+- Epoch
+- Fritz Berger
+- JavaEnergy
+- LANPWR
+- Liontron
+- Lossigy
+- Norström
+- OGRPHY
+- Overkill Solar
+- Perfektium
+- SBL
+- Supervolt (v3)
+- Ultimatron
+- Vatrer
+- Weize
+
+To confirm before you buy or rely on a pack: if the battery connects in the
+**Xiaoxiang** app (iOS/Android), this app should read it too. That app talks the
+same JBD protocol.
+
+Two things to know when adding these:
+
+- Some packs advertise a name that does not contain a battery keyword, so the
+  scanner may not mark them "likely battery". Examples: SBL packs show up as
+  `SBL-…`, Supervolt v3 as `SX1…`, and Vatrer as `DWC…` or `DXD…`. You can still
+  pick the device by its MAC address, or enter the MAC by hand.
+- A battery being flagged "likely battery" is a guess from its name or Bluetooth
+  module. It does not confirm the JBD protocol. Batteries built on a different
+  BMS (for example Daly, or brands that use their own app such as some LiTime,
+  Redodo, and Power Queen models) will not connect.
+
+The brand list draws on the JBD-compatible devices tracked by the
+[BMS_BLE-HA project](https://github.com/patman15/BMS_BLE-HA) and reports on the
+[DIY Solar Power Forum](https://diysolarforum.com/threads/list-of-store-bought-batteries-that-use-jbd-bms.108563/).
+
 ## 5. Finding a Victron advertisement key
 
 The MAC address is broadcast over the air, but the encryption key is not, so you
