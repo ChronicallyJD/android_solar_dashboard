@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.offgrid.solardashboard.data.AppSettings
 import com.offgrid.solardashboard.data.DeviceConfig
 import com.offgrid.solardashboard.data.MonitorState
+import com.offgrid.solardashboard.data.Tariff
 import com.offgrid.solardashboard.protocol.DeviceReading
 import com.offgrid.solardashboard.service.PowerOptimization
 import java.time.LocalDateTime
@@ -97,6 +98,7 @@ fun DashboardScreen(vm: DashboardViewModel) {
             item {
                 EnergyBar(harnessedW = totalPv, expendedW = totalAc,
                     loadEnergyTodayWh = snap.loadEnergyTodayWh,
+                    projectedAnnualWh = snap.loadEnergyProjectedAnnualWh,
                     rateCentsPerKwh = settings.electricityRateCents)
             }
             item { OverviewRow(mppt, inverters, bms) }
@@ -181,20 +183,25 @@ private fun nextUpdateClock(lastIso: String, intervalSec: Int): String? = try {
 
 /**
  * Energy overview: how much power is currently being Harnessed (solar) versus
- * Expended (AC load), plus the estimated dollar value of the energy delivered to
- * loads so far today ([loadEnergyTodayWh]) at [rateCentsPerKwh]. Basing $ Saved
- * on load energy (not solar harvested) credits the grid power you avoided buying:
- * it accrues day and night (battery discharge still serves loads) without
- * double-counting the solar that flowed through the battery. The Harnessing and
- * Expending bars share one watt scale; the $ Saved bar mirrors the Expending
- * length since savings track the load being served, while its value is the
- * running day total.
+ * Expended (AC load), plus the "$ Saved" estimate priced at [rateCentsPerKwh].
+ * Basing savings on load energy (not solar harvested) credits the grid power you
+ * avoided buying: it accrues day and night (battery discharge still serves loads)
+ * without double-counting the solar that flowed through the battery.
+ *
+ * The "$ Saved" section leads with an annual projection from recent days
+ * ([projectedAnnualWh], null until a full day is recorded) and shows today's
+ * running total ([loadEnergyTodayWh]) below it.
  */
 @Composable
-private fun EnergyBar(harnessedW: Double, expendedW: Double, loadEnergyTodayWh: Double, rateCentsPerKwh: Double) {
+private fun EnergyBar(
+    harnessedW: Double,
+    expendedW: Double,
+    loadEnergyTodayWh: Double,
+    projectedAnnualWh: Double?,
+    rateCentsPerKwh: Double,
+) {
     val maxW = maxOf(harnessedW, expendedW, 1.0)
     val expendedFrac = (expendedW / maxW).toFloat()
-    val savedDollars = com.offgrid.solardashboard.data.Tariff.savingsDollars(loadEnergyTodayWh, rateCentsPerKwh)
     Card(
         Modifier.fillMaxWidth().padding(top = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -204,7 +211,7 @@ private fun EnergyBar(harnessedW: Double, expendedW: Double, loadEnergyTodayWh: 
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
             EnergyRow("Harnessing", "%.0f W".format(harnessedW), (harnessedW / maxW).toFloat(), SolarColors.Green)
             EnergyRow("Expending", "%.0f W".format(expendedW), expendedFrac, SolarColors.Purple)
-            EnergyRow("$ Saved", "$%.2f".format(savedDollars), expendedFrac, SolarColors.Amber)
+            SavingsBlock(loadEnergyTodayWh, projectedAnnualWh, rateCentsPerKwh)
         }
     }
 }
@@ -237,6 +244,30 @@ private fun EnergyRow(label: String, value: String, fraction: Float, color: Colo
             fontFamily = FontFamily.Monospace,
             modifier = Modifier.width(84.dp).padding(start = 8.dp))
     }
+}
+
+/**
+ * The "$ Saved" section of the energy card: a "$ Saved" heading, an annual
+ * projection when available, and today's running total. All figures are priced
+ * at [rateCentsPerKwh].
+ */
+@Composable
+private fun SavingsBlock(
+    todayWh: Double,
+    projectedAnnualWh: Double?,
+    rateCentsPerKwh: Double,
+) {
+    val today = Tariff.savingsDollars(todayWh, rateCentsPerKwh)
+    val muted = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+    Text("$ Saved", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        color = SolarColors.Amber, modifier = Modifier.padding(top = 10.dp))
+    if (projectedAnnualWh != null) {
+        val perYear = Tariff.savingsDollars(projectedAnnualWh, rateCentsPerKwh)
+        Text("~$%.0f / year at this rate".format(perYear),
+            fontSize = 12.sp, color = muted, modifier = Modifier.padding(top = 2.dp))
+    }
+    Text("$%.2f today".format(today), fontSize = 11.sp, color = muted,
+        modifier = Modifier.padding(top = 2.dp))
 }
 
 @Composable

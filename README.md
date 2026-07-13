@@ -11,10 +11,12 @@ usage with screenshots. Grab the latest signed APK from
 
 ## What it does
 
-- **JBD / Vatrer / Overkill / Daly BMS**: connects over GATT (service `ff00`
-  / `ffe0` / Nordic UART), reads register `0x03` basic info: pack voltage,
-  current, SoC, per-cell balance, temperatures, cycles, FET status, faults,
-  runtime estimates. Optional password auth (`0x06`).
+- **JBD (Jiabaida) BMS**: connects over GATT (service `ff00` / `ffe0` / Nordic
+  UART), reads register `0x03` basic info: pack voltage, current, SoC, per-cell
+  balance, temperatures, cycles, FET status, faults, runtime estimates. Optional
+  password auth (`0x06`). This is the same protocol the Xiaoxiang / JBD app uses,
+  so many rebranded LiFePO4 packs work; the
+  [manual](docs/MANUAL.md#supported-batteries) lists known brands.
 - **Victron Instant Readout**: passively scans BLE advertisements
   (manufacturer ID `0x02E1`), AES-128-CTR decrypts them with your advertisement
   key, and parses every record type: Solar Charger (`0x01`), Battery Monitor

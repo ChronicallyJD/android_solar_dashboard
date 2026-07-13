@@ -16,8 +16,13 @@ object MonitorState {
         val readings: List<DeviceReading> = emptyList(),
         val lastUpdated: String? = null,
         val scanning: Boolean = false,
-        // Energy delivered to loads so far today (Wh); backs the "$ Saved" figure.
+        // Energy delivered to loads (Wh); backs the "$ Saved" figure. Today resets
+        // at midnight; lifetime never resets; projectedAnnual is null until a full
+        // day has been recorded. firstDate is the first day observed.
         val loadEnergyTodayWh: Double = 0.0,
+        val loadEnergyLifetimeWh: Double = 0.0,
+        val loadEnergyProjectedAnnualWh: Double? = null,
+        val loadEnergyFirstDate: String? = null,
     )
 
     private val _state = MutableStateFlow(Snapshot())
@@ -66,10 +71,15 @@ object MonitorState {
         _state.value = _state.value.copy(scanning = scanning)
     }
 
-    /** Publish the day's load-energy total (Wh) for the "$ Saved" estimate. */
+    /** Publish the load-energy totals (Wh) for the "$ Saved" estimate. */
     @Synchronized
-    fun setLoadEnergy(wh: Double) {
-        _state.value = _state.value.copy(loadEnergyTodayWh = wh)
+    fun setLoadEnergy(todayWh: Double, lifetimeWh: Double, projectedAnnualWh: Double?, firstDate: String?) {
+        _state.value = _state.value.copy(
+            loadEnergyTodayWh = todayWh,
+            loadEnergyLifetimeWh = lifetimeWh,
+            loadEnergyProjectedAnnualWh = projectedAnnualWh,
+            loadEnergyFirstDate = firstDate,
+        )
     }
 
     /** Seed a device's chart history from the database on launch. */

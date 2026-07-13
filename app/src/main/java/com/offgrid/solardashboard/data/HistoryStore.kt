@@ -170,6 +170,38 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, 
         return wh
     }
 
+    /**
+     * Load energy per local day (Wh), integrated from the stored inverter samples
+     * with the same trapezoidal + [maxGapMs] gap rule as [loadEnergyTodayWh], each
+     * interval credited to the day of its earlier sample. Oldest day first. Used to
+     * backfill the lifetime total and the projection window on the first launch
+     * after upgrading, so existing installs start with real numbers, not zero.
+     */
+    fun dailyLoadEnergyWh(maxGapMs: Long = 15 * 60 * 1000L): List<Pair<String, Double>> {
+        val samples = ArrayList<Triple<Long, Double, String>>() // millis, watts, local date
+        readableDatabase.rawQuery(
+            "SELECT recorded_at, SUM(ac_out_power_va) FROM readings " +
+                "WHERE device_type = 'inverter' AND ac_out_power_va IS NOT NULL " +
+                "GROUP BY recorded_at ORDER BY recorded_at",
+            null,
+        ).use { c ->
+            while (c.moveToNext()) {
+                val iso = c.getString(0)
+                val t = isoToMillis(iso) ?: continue
+                samples.add(Triple(t, c.getDouble(1), iso.substring(0, 10)))
+            }
+        }
+        val byDay = LinkedHashMap<String, Double>()
+        for (i in 1 until samples.size) {
+            val dtMs = samples[i].first - samples[i - 1].first
+            if (dtMs <= 0 || dtMs > maxGapMs) continue
+            val avgW = (samples[i].second + samples[i - 1].second) / 2.0
+            val day = samples[i - 1].third
+            byDay[day] = (byDay[day] ?: 0.0) + avgW * (dtMs / 3_600_000.0)
+        }
+        return byDay.entries.map { it.key to it.value }
+    }
+
     private fun isoToMillis(s: String): Long? = try {
         java.time.LocalDateTime.parse(s)
             .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
