@@ -17,8 +17,11 @@ icon changes.
 
 - **App icon:** `store/play-icon-512.png`, 512x512, 32-bit PNG.
 - **Feature graphic:** `store/play-feature-1024x500.png`, 1024x500, 24-bit PNG.
-- **Screenshots:** use the phone captures in `images/` (for example
-  `dashboard-top.png`). Play requires at least two phone screenshots.
+- **Phone screenshots:** `store/screenshots/`, six 1080x2160 (2:1) 24-bit PNGs,
+  numbered in upload order: dashboard, devices, batteries, history, alerts, help.
+  Prepared from the captures in `images/` by `store/prepare_screenshots.py`
+  (trims to the 2:1 ratio Play requires and drops the alpha channel). Play
+  requires at least two.
 
 ## Short description (61 characters)
 
