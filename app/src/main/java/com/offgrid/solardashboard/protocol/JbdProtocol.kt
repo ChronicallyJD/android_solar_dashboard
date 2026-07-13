@@ -41,8 +41,11 @@ object JbdProtocol {
     )
 
     // BLE device name substrings that trigger auto-discovery
+    // Names that suggest a JBD-protocol pack, for the discovery "likely battery"
+    // flag only. Daly is excluded: it advertises a BMS but speaks a different
+    // protocol this app does not read.
     val NAME_KEYWORDS = listOf(
-        "jbd", "bms", "xiaoxiang", "overkill", "daly", "vatrer", "sp04", "sp16",
+        "jbd", "bms", "xiaoxiang", "overkill", "vatrer", "sp04", "sp16",
         "jiabaida",
     )
 
