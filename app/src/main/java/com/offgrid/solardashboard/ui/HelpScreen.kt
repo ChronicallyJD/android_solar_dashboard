@@ -59,11 +59,12 @@ fun HelpScreen() {
 
         Section("Energy card")
         Body("Harnessing is the power your solar is producing right now. Expending is the power your " +
-            "inverters are delivering to loads right now. $ Saved is the value of the energy your " +
-            "loads used so far today, priced at the electricity rate you set under Settings, Polling " +
-            "and History (it defaults to the national average). It is based on load energy, not solar " +
-            "harvested, so it keeps climbing at night while the battery runs your loads, and it resets " +
-            "at midnight. It is an estimate.")
+            "inverters are delivering to loads right now. $ Saved estimates the value of the energy " +
+            "your loads use, priced at the electricity rate you set under Settings, Polling and " +
+            "History (it defaults to the national average). It shows a per-year projection " +
+            "extrapolated from your recent daily average, plus today's total so far. Savings are " +
+            "based on load energy, not solar harvested, so they keep climbing at night while the " +
+            "battery runs your loads. It is an estimate.")
 
         Section("Collapsing sections")
         Body("Tap a section header (MPPT Chargers, Inverters, Battery Packs) to collapse or expand " +

@@ -3,6 +3,20 @@
 All notable changes to Solar Dashboard for Android are documented here. Dates are
 in YYYY-MM-DD.
 
+## [Unreleased]
+
+### Changed
+
+- **"$ Saved" now shows an annual projection and today's total.** A savings
+  figure that resets each day understated solar's value (a fresh morning showed
+  cents). The Energy card's $ Saved section now leads with a "~$X/year at this
+  rate" projection extrapolated from the recent daily average, with today's
+  running total below it. Accounting is unchanged (all load energy, priced at the
+  configured rate). The recent-day window is persisted and survives restarts and
+  midnight rollovers (including days the app was closed across midnight), and is
+  backfilled from stored history on the first launch after upgrading (bounded by
+  the retention window) so the projection is populated immediately.
+
 ## [1.0.0] - 2026-07-12
 
 First public release. Signed APK attached to the

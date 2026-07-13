@@ -50,7 +50,8 @@ class MonitorService : Service() {
     private lateinit var energyStore: EnergyStore
     private lateinit var alertStore: AlertStore
 
-    // Daily load-energy accumulator (Wh delivered to loads) for "$ Saved".
+    // Load-energy accumulator (Wh delivered to loads) for "$ Saved": today,
+    // lifetime, and the recent-day window that feeds the annual projection.
     private var energyState = EnergyAccumulator.State("", 0.0, 0L)
 
     override fun onCreate() {
@@ -98,35 +99,72 @@ class MonitorService : Service() {
     }
 
     /**
-     * Restore today's load-energy total from storage so "$ Saved" survives a
-     * restart, or start fresh if the stored total is from a previous day.
+     * Restore the load-energy totals from storage so "$ Saved" survives a restart:
+     * today's total (or fresh if the stored total is from a previous day), the
+     * lifetime total, the first-seen date, and the recent-day projection window.
      */
     private fun seedLoadEnergy(historyEnabled: Boolean) {
-        val (storedDate, storedWh) = energyStore.load()
+        val stored = energyStore.load()
         energyState = EnergyAccumulator.seed(
-            storedDate, storedWh, LocalDate.now().toString(), System.currentTimeMillis(),
+            stored.date, stored.wh, LocalDate.now().toString(), System.currentTimeMillis(),
+            stored.lifetimeWh, stored.firstDate, stored.recentDays,
         )
-        energyStore.save(energyState.date, energyState.wh)
-        MonitorState.setLoadEnergy(publishedLoadEnergy(historyEnabled))
+        if (!stored.backfilled) {
+            energyState = backfillLoadEnergyFromHistory(energyState)
+            energyStore.markBackfilled()
+        }
+        energyStore.save(energyState)
+        publishLoadEnergy(historyEnabled)
     }
 
     /**
-     * Update the daily load-energy total. When history is enabled the value is
-     * integrated from the persisted inverter samples, which survives a restart.
-     * The in-memory accumulator is kept up to date as a fallback for when history
-     * is disabled (or a query fails).
+     * On the first launch after upgrading, reconstruct the lifetime total, the
+     * first-seen date, and the projection window from whatever history the DB still
+     * holds, so existing installs start with real numbers instead of zero. Bounded
+     * by the history retention window; a query failure leaves the state untouched.
+     */
+    private fun backfillLoadEnergyFromHistory(state: EnergyAccumulator.State): EnergyAccumulator.State =
+        try {
+            val daily = history.dailyLoadEnergyWh()
+            if (daily.isEmpty()) state
+            else {
+                val today = LocalDate.now().toString()
+                val lifetimeWh = daily.sumOf { it.second }
+                val recentDays = daily.filter { it.first != today }.map { it.second }
+                EnergyAccumulator.backfill(state, lifetimeWh, daily.first().first, recentDays)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "load-energy history backfill failed: ${e.message}")
+            state
+        }
+
+    /**
+     * Update the load-energy totals from the current inverter load power. The
+     * lifetime total and projection window are driven by the in-memory accumulator;
+     * today's published value prefers the restart-durable DB integration (when
+     * history is enabled) and falls back to the accumulator.
      */
     private fun accumulateLoadEnergy(fresh: List<DeviceReading>, historyEnabled: Boolean) {
         val loadW = fresh.filter { it.deviceType == "inverter" }.mapNotNull { it.acOutPowerVa }.sum()
         energyState = EnergyAccumulator.accumulate(
             energyState, System.currentTimeMillis(), LocalDate.now().toString(), loadW,
         )
-        energyStore.save(energyState.date, energyState.wh)
-        MonitorState.setLoadEnergy(publishedLoadEnergy(historyEnabled))
+        energyStore.save(energyState)
+        publishLoadEnergy(historyEnabled)
     }
 
-    /** Prefer the restart-durable DB integration; fall back to the accumulator. */
-    private fun publishedLoadEnergy(historyEnabled: Boolean): Double {
+    /** Publish today (DB-preferred), lifetime, and projected-annual load energy. */
+    private fun publishLoadEnergy(historyEnabled: Boolean) {
+        MonitorState.setLoadEnergy(
+            todayWh = publishedLoadEnergyToday(historyEnabled),
+            lifetimeWh = energyState.lifetimeWh,
+            projectedAnnualWh = EnergyAccumulator.projectedAnnualWh(energyState),
+            firstDate = energyState.firstDate,
+        )
+    }
+
+    /** Today's total: prefer the restart-durable DB integration; fall back to the accumulator. */
+    private fun publishedLoadEnergyToday(historyEnabled: Boolean): Double {
         if (!historyEnabled) return energyState.wh
         return try {
             history.loadEnergyTodayWh("${LocalDate.now()}T00:00:00")

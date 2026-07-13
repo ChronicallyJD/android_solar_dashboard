@@ -142,11 +142,11 @@ From top to bottom:
 - **Energy card.**
   - **Harnessing**: total solar power being produced right now (watts).
   - **Expending**: total power your inverters are delivering to loads right now.
-  - **$ Saved**: the value of the energy your loads used so far today, priced at
-    the electricity rate you set in Settings (default is the national average).
-    It is based on load energy, not solar harvested, so it keeps climbing at
-    night while the battery runs your loads, and it resets at midnight. It is an
-    estimate.
+  - **$ Saved**: the estimated value of the energy your loads use, priced at the
+    electricity rate you set in Settings (default is the national average). It
+    shows a per-year projection from your recent daily average, plus today's total
+    so far. Based on load energy, not solar harvested, so it keeps climbing at
+    night while the battery runs your loads. It is an estimate.
 - **Summary tiles.** SOLAR (total PV watts), INVERTERS (total AC output), and
   BATTERY (average state of charge), each with an online count.
 - **Device sections.** MPPT Chargers, Inverters, Battery Packs, and Other Devices.
@@ -280,9 +280,9 @@ troubleshooting.
 time. This is usually transient; it clears on a later cycle. If a pack needs a
 password, set it in the device editor.
 
-**$ Saved seems low.** It reflects only the energy your loads have used since
-midnight, priced at an average rate. It climbs through the day and resets at
-midnight.
+**$ Saved seems low.** The "today" value resets at midnight, so it looks small in
+the morning and builds through the day. The per-year projection extrapolates from
+your recent daily average and gives the fuller picture.
 
 **Alerts did not arrive.** Use **Send test alert** and read the per-channel
 result. For email, the most common cause is using a normal Google password
